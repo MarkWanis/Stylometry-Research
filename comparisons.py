@@ -34,9 +34,12 @@ def load_embeddings(results_dir: str):
 def create_heatmap(embeddings: np.ndarray, ids: list[str], output_dir: str):
     # To create the heatmap, a matrix is created of all the correlations
     differenceArray = []
+
+    firstEmbeddingIndex = next((i for i, f in enumerate(ids) if f.startswith("job_B1.1.1_")), -1)
     
     # Go through each embedding
     for i, outerEmbedding in tqdm(enumerate(embeddings), desc="outerLoop", leave=False):
+        """
         row = []
         # And get its correlation to all the other embeddings
         for j, innerEmbedding in tqdm(enumerate(embeddings), desc="innerLoop", leave=False):
@@ -49,6 +52,17 @@ def create_heatmap(embeddings: np.ndarray, ids: list[str], output_dir: str):
 
         # Add this row of the correlations to the matrix
         differenceArray.append(row)
+        """
+
+        if i == firstEmbeddingIndex:
+            continue
+
+        row = []
+        cor, p = pearsonr(embeddings[firstEmbeddingIndex], outerEmbedding)
+        row.append(cor)
+
+    return sum(row) / len(row)
+
         
     # # This is mainly for debugging purposes, and it does the same thing but prints out the correlations
     # # I don't just have this in the normal loop because it breaks the tqdm
@@ -63,12 +77,14 @@ def create_heatmap(embeddings: np.ndarray, ids: list[str], output_dir: str):
     #     differenceArray.append(row)
     
     # Create either the heatmap or clustermap
-    im = sns.clustermap(differenceArray, cmap="YlGnBu", metric="correlation", tree_kws={"linewidths": 0.1})
-    # im = sns.heatmap(differenceArray, cmap="YlGnBu")
+    #im = sns.clustermap(differenceArray, cmap="YlGnBu", metric="correlation", tree_kws={"linewidths": 0.1})
+    """
+    im = sns.heatmap(differenceArray, cmap="YlGnBu")
     
     # Save the image
     output_path = Path(output_dir) / 'embedding_visualization.png'
     plt.savefig(output_path, dpi=1200, bbox_inches='tight')
+    """
 
 
 def generate_umap():
@@ -91,7 +107,7 @@ def generate_umap():
         logger.info(f"Loaded {len(embeddings)} embeddings")
         
         # Generate visualization
-        create_heatmap(embeddings, ids, output_dir)
+        logger.info(create_heatmap(embeddings, ids, output_dir))
         logger.info("Generated heatmap")
         
         return f"Success"

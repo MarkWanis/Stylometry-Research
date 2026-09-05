@@ -1,0 +1,832 @@
+Inter iuuentutem et iuuentam atque iuuentantem hoc distat iuuentus est collectio iuuenum multorum haec
+Ingestum inportatum uel insitum instructum.
+Ingestum i inportatum uel insitum instructum.
+Impostus i impositus i inpostus.
+internuntio i interpono i internuntio.
+Taratantara i cribrum i taratantara.
+Intractabile i insuperabile.
+Incubo as bui i insisto uel insedeo.
+Incumbo i imnineo insto.
+Tantalus i diues auarus.
+Insignio i nobilito.
+Identidem i rursum.
+Ilicet i statim.
+Inter.
+Reus scyldig.
+Damnatus fordemed.
+Hosticus feondlic uel hostilis.
+Osor feond.
+Facinus maan.
+Peioro ic forswerige.
+Gibborosus uel strumosus hoferede uel gibbus uel struma.
+Profanus manful.
+Exosus uel perosus ansæte.
+Callidus geap.
+Uersutus hindergeap.
+Simulator hiwere.
+Fictor uel hipochrita liccetere.
+Adulator uel fauisor liffetere.
+Adulatio lyffetung.
+Deceptor bepæcend.
+Seductor læfend.
+Proditor læwend.
+Delator wrohtbora.
+Patricida fæderslaga.
+Parricida mægslaga.
+Cicatrix dolhswaþ.
+Soma lichama.
+Truncus heafodleas bodig.
+Funus lic uel hreaf.
+Feretrum.
+Mausoleum kyninga byrgen uel bustum.
+Sarcofagum þruþ.
+Unguina uel unguenta smyrels uel sealf.
+Reses uel deses uel piger slaw.
+Infidus ungetreowe.
+Iniuriosus teonful.
+Contentiosus geflitful.
+Impiger unslaw uel prepes.
+Lentus uel piger sleac.
+Conciliabulum gemotstow.
+Consulo tibi ic ræde.
+Consulo te ic wrine þe.
+Conciliatio gesybsumung.
+Conciliator rædgifa.
+Consultor ic gesibbige.
+Contionor ic smeage uel meditor.
+Pretor uel iudex uel consul ealdorman.
+Censor uel arbiter dema.
+Mas hysecild.
+Sexus wærhade uel wifhad.
+Coniunx gemæcga.
+Coniuges uel coniugales gesamhiwan.
+Coniugium uel matrimonium gesinscipe.
+Complex uel consentiens gegada.
+Complices, conspirantes gegadan uel geþwæriende.
+Incestus uel impurus unclæne.
+Ancilla serua abra uel dula g wyln.
+Dulus þeowa.
+Empticus geboht þeowa.
+Uerna uel uernaculus inberdling uel wostorling uel uernula.
+Alumnus fosterfæder alumnus dicitur qui nutrit et qui nutritur.
+Prepositus foreset uel gerefa.
+Exercitus here.
+Fatigatus atered.
+Exercitatus acostnod.
+Populus folc uel byrctreow.
+Procinctus fyrdingc.
+Edictum geban.
+Apparatus gearcung.
+Uulgus uel plebs ceorlic folc.
+Heres hlaford.
+Congregatio contio gegaderung.
+Conuent conuentio gesamnung.
+Arrabo wedlac.
+Cliens uel clientulus cniht.
+Ephebus uel buteo beardleas.
+Galos glos weres swuster.
+Sponsalia brytgifta uel brydegifa.
+Procus wogere.
+Sponsus brydgi.
+Pronuba hadswape.
+Sponsa bryd uel paranimphus hadswape.
+Alogos g unsprecede cild.
+Paranimphus brydguma uel dryhtealdor.
+Unicuba anlegere wifman.
+`Uxoratus þe wif hæfð.
+Nimpha bryd.
+Derelicta laf uel forlæten wif.
+Priuignus steopcild.
+Anula uel uetula eald wif.
+Adolescens geong man uel inuesticeps uel inuestis.
+Pube tenus frumbyrdling.
+Pecuniosus feohstrang.
+Locuples landspedig.
+Gamos bryd.
+Egenus wædla.
+Leno wemere uel tihtere.
+Thelonearius tolnere uel tollere.
+Profugus flyma.
+Exul utlaga.
+Hebes dwæs uel soott.
+Hebitudo dwæsnys uel sotscipe.
+Edax uel glutto frettol.
+Ambro gifere frec.
+Uerator grædig.
+Procax uel peruicax gemah.
+Procacitas uel peruicax gemahnys.
+Cachinnatio ceahhetung uel cincung.
+Hilaris glædman.
+Tristis unrot uel gealh.
+Mestus uel merens dreorig.
+Fames uel popina hunger.
+Derisio talhlehter.
+Tripudium gefea.
+Rancor anda.
+Abstemium syfernys.
+Abstemus syfre.
+Cura cara.
+Obesus oferfæt.
+Pinguedo smyltnys.
+Crassitudo fætnys.
+Corpulentus þiccul.
+Grossus græat.
+Macer hlæne.
+Macilentus þynnul.
+Macies uel tabitudo hlænnes.
+Gracilis smæl uel exilis uel subtilis.
+Exiguus gehwæde.
+Irsutus uel ispidus ruh.
+Ualidus uel uegetus trum.
+Inualidus unstrang.
+Inbecillis wanhal.
+Cpb Crassitudo f&tnys.
+Curiosus carful.
+Studium bigengnes uel smeagung.
+Securitas karleasnes.
+Causa uel negotium intiga.
+Obstinatus uel pertinax anwilla.
+Obstinatia uel pertinacia anwilnes.
+Uerecundus uel pudens scamfæst.
+Pudicus sideful.
+Clastus clæne.
+Inpudicus unsideful.
+Incestus unclæne.
+Exilium wræcsiþ.
+Peregrinatio ælþeodignes.
+Prohemium þurhlocung.
+Prefatio forespæc.
+Reconciliatio eðþingung.
+Pacificatio gesibsumung.
+Relegatus wide asend.
+Religatus uel uinculatus gewriþen.
+Deportatus to wite asend butan his gode.
+Exterminator utdræfere.
+Exterminatus uel externus ut adryfen.
+Expers dælleas.
+Exsors orhlyta.
+Pater fæder.
+Mater moder.
+Auus ealdefæder.
+Patruus fædera.
+Matertera moddrige.
+Aua ealdemoder.
+Proauus þridde moder.
+Proauia þridde moder.
+Abauus feowerþa fæder.
+Abauia.
+Tritauus fifte fæder.
+Tritaua.
+Familia hyred.
+Propago cynren.
+Generatio cneores.
+Soboles uel proles bearn uel cnosl uel tudder.
+Filius uel filia suna uel dochtor.
+Liberi freobearn uel æþelborene cild.
+Nothus uel spurius; nothus dicitur; qui natus est ex nobili patre; et ignobili matre; spurius autem
+Filius sune.
+Soror suster.
+Filia uel nata dohter.
+Filiaster steopdohter.
+Sororius suster sune.
+Frater broþer.
+Nepos suna sune uel broþer sune uel suster sune þæt is nefa.
+Neptis broþer dochter uel suster dohter nefene.
+Pronepos þridde sune.
+Proneptis þridde dohter.
+Abnepos feorþe sune.
+Abneptis.
+Adnepos fifte sune.
+Adneptis.
+Trinepos sixte sune.
+Trineptis.
+Agnati fædern magas.
+Cognati meddren magas.
+Propinquus mæg uel gesibling.
+Patrueles fæderan sunan.
+Matrueles moddrian sunan.
+Fratres patrueles fæderan sunan.
+Fratres gebroþru uel gelodan uel siblingas.
+Consobrini gesustrenu.
+Socer sweor.
+Sobrini geswustrenu bearn.
+Socrus sweger.
+Gener aþum.
+Nur snora.
+Uitricius uel patraster steopfæder.
+Priuignus steopsunu.
+Filiaster steopdohter.
+Patruus meus min fædera.
+Patruus meus magnus mines fæderan fæder.
+Propatruus meus mines fæderan eldre fæder.
+Appatruus meus mines fæderan þridde fæder.
+Amita mea min faþu.
+Amita mea magna minre faþan moder.
+Proamita mea minre faðan yldre moder.
+Abamita mea minre faþan þridde moder.
+Auunculus meus min eam.
+Auunculus meus magnus mines eames fæder.
+Proauunculus meus mines eames yldre fæder.
+Abauunculus meus mines eames þridde fæder.
+Matertera mea min moddrige.
+Matertera mea magna minre moddrige moder.
+Promatertera mea minre moddrian eldre moder.
+Abmatertera mea minre moddrian þridde moder.
+Pronuba hadswæpa ipsa est et paranimpha.
+Fratissa broþor wif.
+Leuir tacor i frater mariti.
+Ianitrices gebroþre wif.
+Coniuges gemæccan.
+Nupta beweddod.
+Innuba unbeweddod.
+Coniugium uel conubium gesynscipe.
+Contubernium gegadorwist.
+Annus gear.
+Tempus tid.
+Cursus ryne.
+Yris renboga uel arcus bigels.
+Pluuia ren.
+Ninguidus bisniwod.
+Tonitruum uel tonitrus þunor.
+Fulgur uel fulmen uel fulgus ligit.
+Nix snaw.
+Niueus snawhwit.
+Grando hagol.
+Niualis snawlic.
+Gelu fort.
+Pruina hrim.
+Glacies is.
+Glacialis forstlic.
+Aer lyft.
+Aether hroder.
+Uentus wind.
+Nubes wolc.
+Aura hwiða uel weder.
+Nimbus scur.
+Nebula mist uel genip.
+Procella storm uel imber færlic ren.
+Ros deaw.
+Lux leoht.
+Tenebre þrystru uel furfuraculum.
+Seculum woruld.
+Aeuum yld.
+Dies dæg.
+Caligo dimnes.
+Mane ærmyrgen.
+Crepusculum dægred uel tweoneleoht uel þeorcung.
+Conticinium hancred uel gallicantum.
+Uesperum uel serum æfen.
+Intempestum midniht.
+Gallicinium hancred.
+Matutinum uhtentid.
+Diluculum dægred.
+Aurora dægrima.
+Prima prim.
+Tertia undern.
+Sexta middæg.
+Nona non.
+Supprema ofernon oþþe gelotendæg.
+Uesperum æfen.
+Serum bedtid.
+Hora tid.
+Horoscopas tidsceawere.
+Epdomada wucu uel Septimana.
+Mensis monaþ.
+Uer lencten.
+Aestas sumor.
+Autumnus hærfest.
+Hiemps winter.
+Uernalis dies lenctenlic dæg.
+Uer nouum foreweard lencten uel middewurd lencten.
+Uer adultimum æftewærd lencten Eodem modo et aestas et autumnus uocantur on þa ilcan wisan
+Aestiuus dies sumorlic dæg.
+Autumnalis dies hærfestlic dæg.
+Hiemalis dies winterlic dæg uel nox oþþe niht.
+Pridie uel esternum ærendæg.
+Postpridie todæg.
+Postperendie oferðrig.
+Sterilitas uel infecunditas unwestbærnys.
+Fertilitas westmbærnys i ubertas genihtsumnys.
+Campus feld.
+Planities smeþnys.
+Equor brym sæ.
+Pascua læs.
+Pratum mæd.
+Ager æcer.
+Compascuus ager gemæne læs.
+Seges gesawen æcer uel land.
+Desertum westen uel heremus.
+Uia weg.
+Biuia twiwege uel biuium wegelæton i triuium.
+Iter siðfæt.
+Deuium wegleas.
+Inuium.
+Competum weggedal.
+Inium ungefere uel wegleas pæþ.
+Patria eard.
+Pagus tun.
+Prouincia scir.
+Mons munt.
+Tumulus beorh.
+Collis hyll uel monticellus beorh ufeweard.
+Uallis dene.
+Diluuium flod.
+Uadum ford.
+Pons bricg.
+Aqua wæter.
+Limpha hluttor wæter nimpha hydor g.
+Gutta uel stilla dropa.
+Stagnum mere.
+Amnis ea mid treowum ymbset.
+Flumen flod uel yrnende ea.
+Ripa stæþ.
+Riuus rið.
+Latex burna.
+Torrens broc.
+Unda eþ.
+Litus strand.
+Crepido brord uel ofer.
+Alueus stream uel streamracu.
+Fluuius singal flowende ea.
+Riuulus lytel rið.
+Fluctus wealcyndo ea.
+Fons well.
+Latex welspreng.
+Lacus uel lacuna seað.
+Harena sandcesel.
+Spuma fam.
+Gurges wæl.
+Abissus deopnys.
+Uortex edwinde.
+Uorago swelgend.
+Uiuarium fiscpol.
+Euripus i piscina fiscpol.
+Una serta an gerif fisca uel oþer þincg.
+Tormentrum tringegung uel wite.
+Saltus holt.
+Solum tellus uel terra uel ops aruum land.
+Mador wæta i humor a uerbo madeo.
+Aporiamur we synd bereafod i bonis nostris urum godum.
+Pessime luþerlice i reprehensibiliter tullice.
+Non mihi est corde nis me on geþance uel on mode.
+Non enimaduerto ic ne understande.
+Non mihi occurrit ne com hit me ongean.
+Persuadeo ic lære.
+Collatio wordmittung uel wordsomnung.
+Centurias getalu uel heapas uel hundredu.
+Kalende i uocationes gehealdagas uel halige dagas.
+Kalo g uoco latine.
+None ceapdagas.
+Idus swæsingdagas ab edendo dicuntur.
+Aequinoctium emniht.
+Calor hæte uel ëstus uel cauma swoloþ.
+Frigus cyle.
+Feruor hæte micel.
+Siccitas uel ariditas drugaþe.
+Humor uel mador wæte.
+Pecuniosus welig.
+Colorare hiwian.
+Inperito ic wealde uel oft bebeode.
+Affabre cræftlice uel smicere.
+De popularibus of beorhleodum.
+Uenusto ic cyrtenlæce.
+Orno ic smicere geglengce.
+Obumbro ic ofersceadewige.
+Habilis commixtio i habilis coniunctio gedafendling þeodinys.
+Prerogatiua frumgifu uel synder wurðmynt.
+Porus i spiramen orþung.
+Usus nyttung uel þeaf uel gewuna.
+Maligna lux i dubia tweonulleoht.
+Deliniamentum stracung uel olëcung.
+Lepida i fecunda getingce uel beorh uel splendida uel ornata.
+Exagonum six ecge i sexangulatum six hernede.
+Insusurrare i occulte detrahere diglice tælan.
+Diuerticulum wegtwislung.
+Competum wega gemittung.
+Ancillantur hyrsumiað i famulantur þeowiaþ.
+Sinuatio besming.
+Anfractus abrocen land uel hilces.
+Inprouida i inconsiderata unbesceawode.
+Summatim i breuiter sceortlice uel commatice.
+Obsurduit adeafede.
+Uolubile scema sinewealt gesceap.
+Fenerata domino gode on borh geseald.
+Scema locutionis sprecewise.
+Fabulositas spellung.
+Globositas sinewealtnes.
+Anilis fabula ealdra cwena spell.
+Semirotundum healfsinewealt.
+Aquarum alluuio wætera gewæsc.
+Sermo commenticius gesmead sprec.
+Defecatio hlyttrung i purgatio.
+Omne genus holitorum uel holerum æghwylc wyrt cyn.
+Omne genus arbustoru æghwilc treow cyn.
+Omne genus seminarium æghwilc sæd cyn.
+Lolium boþen et cetera and oþre Adulterina lyðre genera cynn.
+Zizania laser.
+Cophinus wilige uel leap.
+Conuersantur i commorantur samod wuniað.
+In procinctu to gefeohte.
+Promptus gearu.
+Specula uel conspicilium weardsteal.
+Preruptum henge clif.
+Spectaculum wæfð uel wæfersyn uel wafung.
+Idioma proprietas linguë agen and gecynde spræc.
+Idiota ungelæred.
+Imperitus ungleaw.
+Inportunus uel petitiosus gemah uel bedul.
+Eculeus uel catasta wæarhrod uel þrypel up.
+Distractio ceap.
+Uenditio sala.
+Contractio uel contractus næmingce.
+Singultio geocsung.
+Ruma uel paleare frætlæppa.
+Ruminatio ciung edroc aceocung.
+Sarpta uinea gescreaded wineard.
+Scorteus leþern.
+Nomina piscium.
+Ballena hwæl et cete uel cetus uel pixtrix dicitur.
+Lupus uel scardo bærs.
+Delphin uel boebarius uel simones mereswin.
+Rombus styria.
+Mulus uel mugilis heardra.
+Platesia facg.
+Murena et murina et lampreda merenæddra.
+Murenula tigle.
+Esocius et salmo lex.
+Sparus þunorbodu.
+Lucius hacod.
+Tinca sliw.
+Tructa truht.
+Capito myne uel ælepute.
+Turnus forn.
+Rocea scylga.
+Cancer crabba.
+Foca seol.
+Musculus hran.
+Polipos loppestre.
+Alles et iarus et taricicus sarra uel sardina hæring.
+Pansor floc.
+Fannus reohhe.
+Sepia cudele uel wasescita.
+Conche uel coclee scille uel sæsnæglas.
+Nassa æwul uel boganett.
+Murice uel conchilium weluc.
+Nomina nauium et instrumenta earum.
+Trieris sceiþ.
+Ypogauus horsa scip.
+Nauclerus sciphlaford.
+Nauta gereþru.
+Aplustre gereþru uel scipgetawu.
+Scapha.
+Archiromacus swift scip.
+Mioparo hiðscipe.
+Barea flotscip.
+Liburna hule.
+Gubernator steora.
+Gubernio steorman.
+Dromo æsc uel barð.
+Pontomium flyte.
+Paro sceaþena scip.
+Trabaria anbyme scip.
+Caudex punt.
+Litoraria trohscip uel tonsilla.
+Linter bat.
+Rates scip.
+Nauicula scippincel.
+Cumba þurruc uel caupolus.
+Scalpus scip uel seigl.
+Cimba uel carina scipes botm.
+Musculos sceort scip.
+Celox flotscip.
+Fori scipes flor.
+Parunculua plegscip.
+Struppus strop uel arwiþþe.
+Palmula arblæd.
+Antempna uel temo segelgyrd.
+Cornua þa twegen endas þaere seglgyrde.
+Trastra þoftan.
+Clauus helma.
+Artemon uel malus mæst.
+Parastates mæsttwist.
+Proretra ancerman.
+Gubernaculum steorsceofl.
+Ponsis sciphlædder.
+Uelum segl.
+Naulum sciptol.
+Cauernaren wranga.
+Acateon sæ mæst segl.
+Puluini slidor.
+Dalum se læsta segl.
+Epitrono se medemesta segl.
+Puppis steorsetl.
+Anquina cops.
+Prora ancersetl.
+Funes rapas uel restes.
+Porticulus hamor.
+Spire linan.
+Sipara anes fotes segl.
+Propes sceatline.
+Safon stæþ.
+Rudentes sciprapas.
+Opisfera sëdingline.
+Pronesium mærels rap uel tonsilla scipmærls.
+Remulcus tohline.
+Strupiar midlu.
+Bolidis sundgyrd.
+Catapiorates sundline.
+Aestuaria fleotes to nette.
+Aestus yst Recussus et accessus maris.
+Reuma gyte stream.
+Remex reþra.
+Ledona nepflod uel ebba.
+Malina heahflod.
+Peeris gearafeng.
+Arula heorð uel firpanne.
+Uncini hocas.
+Strudes spreotas.
+Accessus flod.
+Recessus ebbe uel gytestream.
+Syrtes sandrid.
+Plage netrapas.
+Reuma ebbe uel gytestream.
+Tragum uel uerriculum dræge.
+Nassa bogenett.
+Cassis deornett.
+Conopeum fleohnet uel micgnet.
+Labrum margo uel crepido stæþ uel brerd.
+Lasciua gagol.
+Lorumentum uel tormentum widþe.
+Allugo fyne.
+Alluginatus fyning.
+Cauma uel estus swoþel uel hæte.
+Mensularius peninghwyrfere.
+Numisma scylling.
+Colobista peningmangere.
+Folles dyneras.
+Trapezeta uel moneta mynetere.
+Paracaraximus fals pening.
+Procuratio scir.
+Procurator scirman.
+Proconsul gerefa.
+Curator hehgerefa.
+Augur wicca uel ariolus.
+Sortilogus tanhlytere.
+Aduocatus patronus uel interpellator forspeca uel mundbora.
+Apollogia ladung.
+Apollogeticus beladung.
+Domus hus uel hywræden.
+Proaula i domus coram aula selde.
+Salutatorium gretinghus.
+Zetas aestiuales sumerselde.
+Consistorium þæt us þær man þweað heora handa.
+Tricorum uel triclinium gereordhus.
+Zetas hiemales winterselde.
+Epicaustorium domhus uel mothus.
+Thermas bæþhus uel bæþstow.
+Gimnasium leorninghus.
+Coquina uel culina cicen.
+Colimbus i aquaductus wæterscipes hus.
+Ypodromum goldhordhus uel spondoromum digle gangern.
+Aecclesia circe.
+Aedes hofa.
+Aedicula lytel hof.
+Templum templ.
+Basilica cinges hof uel cyrce.
+Porticus portic.
+Peribolum scire.
+Aula heall.
+Triclinium bur þrybeddod.
+Camara bur.
+Caminatum fyrhus.
+Cubiculum bedcofa.
+Refectorium beodder.
+Dormitorium slæpern.
+Auditorium spræchus.
+Capitolium domhus.
+Curia uel senatus uþwitena spræchus.
+Cella cete.
+Cellarium hordern.
+Lardarium spichus.
+Carnale flæschus.
+Apotheca winhus.
+Aerarium feohhus.
+Piscinale fischus.
+Popima i fames sneadinghus.
+Lautorium wæscern.
+Officina smiþðe uel weorchus.
+Equiale horsern.
+Bostar uel bouiale scipen.
+Ouile i sepimenta uel caule sceapahus.
+Caprile gatahus.
+Casa uel casula insæte hus uel lytel hus.
+Gurgustulum uel gurgustium neara scræf.
+Tugorium hulc.
+Magalia uel mappalia uel capanna byre uel sceapheorden.
+Carcer uel ergastulum uel lautumia cwærtern.
+Latrina uel secessus gang.
+Absida sinewealt cleofa uel portic.
+Asseres latta reafteres.
+Abaso infirmatorium seoccra manna hus.
+Cancelli lytel porticas.
+Brationarium mealthus.
+Pistrina bæcern.
+Pistrilla lytel bæcern.
+Farinale mealehus.
+Gnanarium cornhus.
+Horreum bern.
+Siccatorium cyln uel ast.
+Tornatorium þrylhus.
+Uestiarium hræghus.
+Librarium bochus.
+Bibliotheca boochord uel armarium uel archiuum.
+Salinarium sealthus.
+Cenaculum gemæne metern.
+Zenodochium gisthus ælþeodigra manna.
+Nosochomium seccra manna hus.
+Lupanar uel circus uel theatru uel amphiteatrum myltestrehus.
+Balnearium uel Termanum bæþhus.
+Pomarium uel cucumerarium æppelhus.
+Claustrum fæsten uel clauster.
+Spelunca uel spelea uel specus uel cripta uel antrum scræf.
+Scriptorium pisle ferhus uel caminatum uel aumatium armarium ælces cynnes cæpehus.
+Fenile highus.
+Atrium mycel and rum heall uel cafertun.
+Gazophilacium madmhus uel Thesaurarium goldhold uel corbanan uel donarium.
+Propitiatorium gesceot bæftan þæm heah weofde uel sancta sanctorum uel secretarium uel
+Oratorium gebedhus uel uel oraculum.
+Asilum friðhus uel generstede.
+Sutrina domus sutera hus.
+Potionarium ælces cinnes drenchus.
+Cenobium feala muneca wunung.
+Fana et delubratorium templa.
+Ergasterium uel operatorium weorchus.
+Genitium towhus of wulle.
+Parietina roflease uel manlease ealde wealles.
+Apogeum uel Subterraneum eorðhus.
+Lustra wilddeora holl and denn.
+Lucus uel nemus beora.
+Papilio ganggeteld.
+Tenda tyldsyle.
+Clauus tentorii fitersticca.
+Circumluuius locus mid wæter ymbtyrnd stede.
+Tumultuor i tumultum facio.
+Thoraca i ornamentum pectoris.
+Thorax enim pectus dicitur.
+Alluuium wætergewæsc.
+Netorium inspinn.
+Pectica fleþecamb.
+Liciatorium lorh uel webbeam.
+Tela langweb.
+Licium hefeld.
+Lacerna hacele geflenod uel gecorded.
+Uertigo hwyorfa.
+Suppar interula syrc.
+Radiolum hrisl.
+Alibrum hreol.
+Tramarium medema persa.
+Ragana underhwitel.
+Mataxa uel corductum.
+Stramentum stræl uel bedding.
+Peblum webb.
+Lectisternia bedreaf.
+Stamen wearp.
+Fulcra eal bedreaf.
+Globus clywen.
+Lodix wæstling.
+Glomus unwunden gearn.
+Glomer globellum cleowen.
+Deponile wefta uel weft.
+Panuli, planus uel panus colus disstæf.
+Ciclas orlas Uel oraria.
+Apidiscus webhoc.
+Ordior ic hefeldige.
+Insubuli webbeamas.
+Percussorium slege.
+Pecten bannuccamb.
+Tara webgereþru.
+Texo ic wefe.
+Texta gewefen.
+Textor webba.
+Textrix webbestre.
+Trama uel subtemen oweb uel ab.
+Polimita uel orbiculata ringfah uel trindle.
+Ependeten cop uel hoppada uel ufrescrud.
+Fasces ealdordomas uel þa hehstan wurðscipas.
+Flamininus honor biscoplic wurðscipe.
+Flamineolum biscopes hus uel flamineum.
+Flamen biscop.
+Mancipatio þeowdom.
+Manumissor freotgifa.
+Manumissio freotgift.
+Emancipatio freodom.
+Manus inpositio handgang.
+Manumissus gefreod.
+Liricus satira scop.
+Poema leoð.
+Poesis leoðweroc.
+Poeta leoðwyrhta uel uates.
+Tragedus uel tragicus uel comicus uel comedus unwurð scop.
+Phinotissa hellerune uel hægtesse.
+Horoscopus dægmelsceawere.
+Mathematicus tungelwitega uel gebyrdwitega.
+Sortilegus tanhlyta.
+Oriades muntælfen.
+Driades wuduelfen.
+Moides feldelfen.
+Amadriades wylde elfen.
+Naides sæelfen.
+castalidas dunelfen.
+Penates cofgodas.
+Tisiphona wælcyrie.
+Uagor i erro uel inepte discurro.
+Uaticinor i perdico uel propheto.
+Uergo i inclino uerto.
+Uelito et tor i nauigo uel leuiter pugno nomina uelites sunt qui leuibus armis precedunt hostem ad
+Ueterna i morbo uel pigritia nomina ueternum dicitur morbi intercus.
+Hoc uiscum i laqueus.
+Parce hægtesse.
+Satiri uel faunilini unfæle men.
+Ficarii uel inuii wudewasan.
+Lictor hyldere uel uirgifer.
+Lanio uel lanista uel carnifex uel macellarius uel hyldere cwellere uel flæctawere.
+Questionarius dema.
+Plagiarius nytena þeof.
+Questor dema.
+Questus uel lucrum gestreon.
+Creditor lænere.
+Ariolus wicca.
+Commentariensis gerefa.
+Teloneum tolsetl.
+Assecla folgere.
+Abatis fætfellere.
+A secretis geruna.
+Princeps consiliarius yldest rædbora.
+A responsis i magister responsorum yldest ærendrana.
+A caliculis magister calicum yldest byrla.
+Pincerna byrle.
+Transilio i ic oferhleape.
+Transilitor oferhleapend.
+Altilis fedels.
+Citharedus hearpere.
+Citharistria hærpestre.
+Auledus readpipere.
+Salpista aule bymere.
+Salpica bymesangere.
+Salpizo ic byme uel Bucino.
+Sponsor uel pres borhhand uel fideiussor uel uas uel uadator.
+Emulus gesaca uel gewinna.
+Accidiosus uel tediosus asolcen.
+Petitor uel petax biddere.
+Pigmeus uel nanus uel pumilio dweorh.
+Paponius druncen.
+Cancellarius i scriniarius burþen.
+Scrinium uel cancellaria idem sunt hordfæt.
+Primiscrinius yldest burþen; Et sacri scriniarius cyrcweard.
+Antigiauus wrtritere.
+Aestimator æhtere.
+Aestimatio æhtnunge.
+Lana sucida unawæscen wull uel uel sucilenta.
+Sideratus uel ictuatus færunge astorfen.
+Dextrochirium brad earmbeah.
+Dissologia twigspræc.
+Acetabulum uel garale eced fæt.
+Exentera unsceot uel geopena.
+Decorticatum æfelle uel rindleas.
+Struma halsgang.
+Neuum werhbræde.
+Eucharis swæs uel wynsum.
+Facetus swæswyrde.
+Facetie wynsem gliw.
+Delumentu þweal.
+Commonitorium ærendgewrit uel pictacium.
+Canalis uel colimbus uel aquaeductus wæterþeote.
+Cataclismus brynflod.
+Ductilis astrengd.
+Prouentus sped.
+Argutiae gleawnys.
+Achademice snotorlice.
+Affectuose uel deuote holdlice.
+Euax wilcume.
+Eatenus uel eotenus oð þæt.
+Gratiosus þoncful.
+Officiosus estful uel gehyrsum.
+Inofficiosus ingratus unestful.
+Lentus waac.
+Uotiuus estful.
+Familaris hiwcuþ.
+Affabilis wordwynsum.
+Inaptus ungefege.
+Incongruus ungehæplic.
+Familiaris hiwcuþrædnys.
+Contubernalis i socius gefera.
+Terribulus uel terribilis ahwilc ondegslic ondryslic.
+Contubernium gadorwist.
+Siliquastrum uel cathedra quadrata fyþerscyte sotel.
+Corollarium i merces med.
+Fundamentum uel fundamen grundweal.
+Peripetasma limb stefning.
+Limes uel terminus.
+Gementum grundstanas.
+Limen.
+Basis syll uel fultura fotstan.

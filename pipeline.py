@@ -46,7 +46,7 @@ def setup_logging(log_dir: str = "logs") -> logging.Logger:
     return logger
 
 # Split text into chunks based on token count, handling long sequences safely.
-def chunk_text(text: str, tokenizer, chunk_size: int = 512) -> list:
+def chunk_text(text: str, tokenizer, logger, chunk_size: int = 512) -> list:
     chunks = []
 
     # rough_chunks splits the text into sentences
