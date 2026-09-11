@@ -16,7 +16,8 @@ Things to do:
 - Fully implement chunk heatmap visualization classification accuracy
 - Save the model and reload it for testing
 - Try for better accuracy with different parameters
-- 
+- Get working on the chunk-level classification (Maybe the answer is to only train on text-level embeddings, and then use the chunk-level embeddings for testing)
+- Currently, it looks like the model is either overfitting or the data is set up in a way that makes classification too easy but innacurate. Need to check the data and make sure that the embeddings are paired correctly and that the training and testing sets are not too similar.
 """
 
 # Set device
@@ -25,17 +26,18 @@ print("Using device:", device)
 
 
 class LinearBinaryModel(nn.Module):
-    def __init__(self, input_dim=2048, hidden_dim=256):#, dropout_rate=0.05): 
+    def __init__(self, input_dim=2048, hidden_dim=256, dropout_rate=0.5):
         super().__init__()
         self.hidden = nn.Linear(input_dim, hidden_dim)  # input → hidden
         self.relu = nn.ReLU()                            # non-linearity
-        #self.dropout = nn.Dropout(dropout_rate)
+        #self.hidden2 = nn.Linear(hidden_dim, hidden_dim)  # hidden → hidden
+        self.dropout = nn.Dropout(dropout_rate)
         self.output = nn.Linear(hidden_dim, 1)          # hidden → output
 
     def forward(self, x):
         x = self.hidden(x)
         x = self.relu(x)
-        #x = self.dropout(x)
+        x = self.dropout(x)
         x = self.output(x)   # scalar score
         return x
 
@@ -61,16 +63,21 @@ def setup_logging():
     return logging.getLogger(__name__)
     
 
-def visualization(model, lines : dict, title, filename, otherData):
-    modelString = str(model)
+"""
+Creates a visualization of the training and testing errors over epochs. 
+The function dynamically adjusts the figure size based on the number of lines in the model description to ensure that all text is visible. 
+It plots the error lines for different classes and saves the resulting figure as a PNG file.
+"""
+def visualization(model: LinearBinaryModel, lines : dict, title: str, filename: str, other_data: str) -> None:
+    model_string = str(model)
 
     # Count lines to estimate height needed 
-    modelLines = len(modelString.splitlines())
-    extraHeight = 0.1 + modelLines * 0.015  # adjust for text length
+    model_lines = len(model_string.splitlines())
+    extra_height = 0.1 + model_lines * 0.015  # adjust for text length
     
     # Create figure with dynamic bottom margin
-    fig, ax = plt.subplots(figsize=(15, 5 + extraHeight * 10))
-    fig.subplots_adjust(bottom=(extraHeight * 10) / ((extraHeight * 10) + 5))
+    fig, ax = plt.subplots(figsize=(15, 5 + extra_height * 10))
+    fig.subplots_adjust(bottom=(extra_height * 10) / ((extra_height * 10) + 5))
 
     colors = ["#e41a1c", "#377eb8", "#4daf4a"]
 
@@ -87,7 +94,7 @@ def visualization(model, lines : dict, title, filename, otherData):
 
     # Add model description below the plot
     fig.text(
-        0.1, 0.02, modelString,
+        0.1, 0.02, model_string,
         fontsize=10,
         va='bottom',
         ha='left',
@@ -96,7 +103,7 @@ def visualization(model, lines : dict, title, filename, otherData):
     )
     # Add model description below the plot
     fig.text(
-        0.5, 0.02, otherData,
+        0.5, 0.02, other_data,
         fontsize=10,
         va='bottom',
         ha='left',
@@ -106,157 +113,74 @@ def visualization(model, lines : dict, title, filename, otherData):
 
     plt.savefig(f"data/visualizations/{filename}.png")  
 
+"""
+Returns list of embeddings and ids
 
-'''
-# Return list of embeddings and ids
-def load_embeddings(results_dir: str) -> dict:
-    embeddings_dict = {}
-
-    # Iterates through each embedding in the directory
-    for f in Path(results_dir).glob('*.json'):
-        with open(f, 'r') as file:
-            data = json.load(file)
-            for job_id, content in data.items():
-                embeddings_dict[job_id] = np.array(content['embedding'], dtype=np.float32) 
-
-    return embeddings_dict
-
-
-def pair_embeddings(a_sample, u_sample):
-    """
-    Create Aelfric-Aelfric (positive) and Aelfric-Unknown (negative) pairs.
-    Returns two lists of concatenated embeddings.
-    """
-    aelfric_aelfric_pairs = []
-    aelfric_unknown_pairs = []
-
-    # Aelfric–Aelfric pairs (positive)
-    for emb_a in a_sample:
-        for emb_b in a_sample:
-            aelfric_aelfric_pairs.append(np.concatenate([emb_a, emb_b]))
-
-    # Aelfric–Unknown pairs (negative)
-    for emb_a in a_sample:
-        for emb_b in u_sample:
-            aelfric_unknown_pairs.append(np.concatenate([emb_a, emb_b]))
-
-    return aelfric_aelfric_pairs, aelfric_unknown_pairs
-
-
-def prepare_data():
-    # --- Load individual embeddings ---
-    aelfric_embeddings = load_embeddings("data/sorted_embeddings/Aelfric")
-    unknown_embeddings = load_embeddings("data/sorted_embeddings/Unknown")
-
-    # Convert to lists
-    aelfric_list = list(aelfric_embeddings.values())
-    unknown_list = list(unknown_embeddings.values())
-
-    # --- Split each into train/test ---
-    aelfric_train, aelfric_test = train_test_split(aelfric_list, test_size=0.2, random_state=0)
-    unknown_train, unknown_test = train_test_split(unknown_list, test_size=0.2, random_state=0)
-
-    # --- Create training pairs ---
-    # (optionally sample to control training size)
-    aelfric_train_sample = random.sample(aelfric_train, k=min(500, len(aelfric_train)))
-    unknown_train_sample = random.sample(unknown_train, k=min(500, len(unknown_train)))
-
-    aelfric_aelfric_pairs, aelfric_unknown_pairs = pair_embeddings(aelfric_train_sample, unknown_train_sample)
-
-    # --- Combine and label training pairs ---
-    X_a = np.stack(aelfric_aelfric_pairs)
-    X_u = np.stack(aelfric_unknown_pairs)
-
-    y_a = np.ones(len(X_a))   # +1 for Aelfric–Aelfric
-    y_u = -np.ones(len(X_u))  # -1 for Aelfric–Unknown
-
-    X_train = np.vstack([X_a, X_u])
-    y_train = np.concatenate([y_a, y_u])
-
-    # --- Prepare test data (not paired yet) ---
-    X_test = np.array(aelfric_test + unknown_test)
-    y_test = np.concatenate([np.ones(len(aelfric_test)), -np.ones(len(unknown_test))])
-
-    return X_train, y_train, X_test, y_test, aelfric_train_sample
-'''
-
-# Return list of embeddings and ids
-def load_embeddings(results_dir: str, allIDs = []):
-    embeddings = []
-    ids = []
-    num_of_chunks = 0
+This function loads embeddings from JSON files in the specified directory. 
+It collects embeddings and their associated IDs, while also keeping track of unique text IDs. 
+The function limits the number of chunks processed to 250 for efficiency.
+"""
+def load_embeddings(results_dir: str, max_num_of_texts: int = 250) -> tuple[np.ndarray, list]:
+    embeddings: list = []
+    ids: list = []
+    num_of_texts = 0
     
-    # Go through every json file
+    # Go through every json file in the directory
     for f in tqdm(Path(results_dir).glob('*.json')):
         with open(f, 'r') as file:
             # Store the embeddings and ids associated with them
             data = json.load(file)
-            for job_id, content in data.items():
-                embeddings.append(content['embedding'])
-                
-                textID = job_id.split('_')[1]
-                chunkNumber = str(f).split('\\')[-1].split('_')[-1].split('.')[0]
-                ids.append(f"{textID}_{chunkNumber}")
 
-                # This will get the list of the overall texts
-                if textID not in allIDs:
-                    allIDs.append(textID)
+            job_id = next(iter(data))  # Get the job_id (Same as list(data.keys())[0])
+            embeddings.append(data[job_id]['embedding']) # Appends text embedding
+            text_id = job_id.split('_')[1] # Extracts text ID from job_id
+            ids.append(text_id) # Appends text ID to the list of IDs
 
-        num_of_chunks += 1
-        if num_of_chunks > 250:
+        num_of_texts += 1
+        if num_of_texts > max_num_of_texts:
             break
                 
     # Return the embeddings and ids
     return np.array(embeddings), ids
 
+"""
+THIS ONLY WORKS ON TEXT LEVEL, NOT CHUNK LEVEL. NEED TO FIX THIS TO KEEP CHUNKS TOGETHER.
 
-def loadData(APath, UPath, trainSplit, randomSeed):
-    # Will store the IDs of individual texts to keep chunks together
-    allId = []
-    allY = []
-    # Get the Aelfric embeddings
-    AEmbeddings, AIds = load_embeddings(APath, allId)
-    allY = ([1] * len(allId))
-    aelfricsize = len(allId)
-    # Get the Unknown embeddings
-    UEmbeddings, UIds = load_embeddings(UPath, allId)
-    allY += ([-1] * (len(allId) - aelfricsize))
-
-    # Create the list of all the embeddings and ids
-    embeddings = np.concatenate((AEmbeddings, UEmbeddings), axis=0)
-    y = [1] * len(AEmbeddings) + [-1] * len(UEmbeddings)
-    ids =  AIds + UIds
-
-    # Randomly split the full works
-    trainingID, testingID, yid1, yid2 = train_test_split(allId, allY, test_size=trainSplit, random_state=randomSeed, stratify=allY)
-
-    # Initialize all the lists
-    xTrain = []
-    xTest = []
-    yTrain = []
-    yTest = []
-    idTrain = []
-    idTest = []
-
-    # Go through all of the chunks and add them to either the training or testing lists
-    for i, embedding in enumerate(embeddings):
-        if ids[i].split("_")[0] in trainingID:
-            xTrain.append(embedding)
-            yTrain.append(y[i])
-            idTrain.append(ids[i])
-        else:
-            xTest.append(embedding)
-            yTest.append(y[i])
-            idTest.append(ids[i])
-
-    return xTrain, xTest, yTrain, yTest, idTrain, idTest, y
+Loads Aelfric and Unknown embeddings, splits them into training and testing sets, and returns the corresponding embeddings, labels, and IDs.
+"""
+def load_data(a_path: str, u_path: str, train_split: float = 0.2, random_seed: int = 0) -> tuple[np.ndarray, np.ndarray, list[int], list[int], list[str], list[str], np.ndarray]:
+    a_embeddings = np.array([]) # np.array of Aelfric embeddings
+    a_ids: list[str] = [] # List of Aelfric IDs
     
+    u_embeddings = np.array([]) # np.array of Unknown embeddings
+    u_ids: list[str] = [] # List of Unknown IDs
 
-def pair_embeddings(embs, labels):
-    """
-    Create Aelfric-Aelfric (positive) and Aelfric-Unknown (negative) pairs.
-    Returns two lists of concatenated embeddings.
-    """
+    embeddings = np.array([]) # np.array of all embeddings
+    y: list[int] = [] # List of all labels (+1 for Aelfric, 0 for Unknown)
+    ids: list[str] = [] # List of all IDs
+
+    # Get the Aelfric embeddings
+    a_embeddings, a_ids = load_embeddings(a_path)
+
+    # Get the Unknown embeddings
+    u_embeddings, u_ids = load_embeddings(u_path)
+
+    # Create the list of all the embeddings, ids, and labels
+    embeddings = np.concatenate((a_embeddings, u_embeddings), axis=0) 
+    y = [1] * len(a_ids) + [0] * len(u_ids)
+    ids = a_ids + u_ids
+
+    # Randomly split the full works while keeping embeddings, IDs, and labels aligned
+    x_train, x_test, y_train, y_test, id_train, id_test = train_test_split(embeddings, y, ids, test_size=train_split, random_state=random_seed, stratify=y)
+
+    return x_train, x_test, y_train, y_test, id_train, id_test, a_embeddings
+
+
+"""
+Create Aelfric-Aelfric (positive) and Aelfric-Unknown (zero) pairs.
+Returns two lists of concatenated embeddings.
+"""
+def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int =250) -> tuple[list[np.ndarray], list[np.ndarray]]:
     a_embs = []
     u_embs = []
 
@@ -266,134 +190,67 @@ def pair_embeddings(embs, labels):
         else:
             u_embs.append(emb)
 
-    a_sample = random.sample(a_embs, k=min(250, len(a_embs))) ### Eventually the samples need to be controlled better
-    u_sample = random.sample(u_embs, k=min(250, len(u_embs)))
+    a_sample = random.sample(a_embs, k=min(num_samples, len(a_embs))) ### Eventually the samples need to be controlled better
+    u_sample = random.sample(u_embs, k=min(num_samples, len(u_embs)))
 
     aa_pairs = []
     au_pairs = []
 
-    # Aelfric–Aelfric pairs (positive)
+    # Aelfric–Aelfric pairs (1)
     for emb_a in a_sample:
         for emb_b in a_sample:
             aa_pairs.append(np.concatenate([emb_a, emb_b]))
 
-    # Aelfric–Unknown pairs (negative)
+    # Aelfric–Unknown pairs (0)
     for emb_a in a_sample:
         for emb_b in u_sample:
             au_pairs.append(np.concatenate([emb_a, emb_b]))
 
-    return aa_pairs, au_pairs
+    # Unknown-Aelfric pairs (0)
+    """
+    for emb_a in u_sample:
+        for emb_b in a_sample:
+            au_pairs.append(np.concatenate([emb_a, emb_b]))
+
+    au_sample = random.sample(au_pairs, k=min(num_samples, len(au_pairs)))  # Sample to limit size
+    """
+
+    return aa_pairs, au_pairs # au_sample
 
 
-def prepare_data():
-    xTrainOld, xTest, yTrainOld, yTest, _, idTest, _ = loadData("data/sorted_embeddings/Aelfric/chunks", "data/sorted_embeddings/Unknown/chunks", 0.2, 42)
+"""
+Loads the data, prepares training pairs, and returns training and testing sets along with Aelfric embeddings for later use in predictions.
+"""
+def prepare_data() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    x_train_old, x_test, y_train_old, y_test, _, _, a_embeddings = load_data("data/sorted_embeddings/Aelfric", "data/sorted_embeddings/Unknown", 0.2, 42)
     
     print("Loaded embeddings...")
-    print(f"Train Embeddings: {xTrainOld} ({len(xTrainOld)})")
-    print(f"Train Labels: {yTrainOld} ({len(yTrainOld)})")
-    print(f"Test Embeddings: {xTest} ({len(xTest)})")
-    print(f"Test Labels: {yTest} ({len(yTest)})")
+    print(f"Train Embeddings: {x_train_old} ({len(x_train_old)})")
+    print(f"Train Labels: {y_train_old} ({len(y_train_old)})")
+    print(f"Test Embeddings: {x_test} ({len(x_test)})")
+    print(f"Test Labels: {y_test} ({len(y_test)})")
 
-    # Separate out Aelfric training samples for pairing during prediction
-    aelfric_train_sample = [xTrainOld[i] for i in range(len(xTrainOld)) if yTrainOld[i] == 1]
-
-    aa_pairs, au_pairs = pair_embeddings(xTrainOld, yTrainOld)
+    aa_pairs, au_pairs = pair_embeddings(x_train_old, y_train_old, num_samples=250)
 
     # --- Combine and label training pairs ---
-    X_aa = np.stack(aa_pairs)
-    X_au = np.stack(au_pairs)
+    x_aa = np.stack(aa_pairs)
+    x_au = np.stack(au_pairs)
 
-    y_aa = np.ones(len(X_aa))   # +1 for Aelfric–Aelfric
-    y_au = -np.ones(len(X_au))  # -1 for Aelfric–Unknown
+    y_aa = np.ones(len(x_aa))   # +1 for Aelfric–Aelfric
+    y_au = np.zeros(len(x_au))  # 0 for Aelfric–Unknown
 
-    xTrain = np.vstack([X_aa, X_au])
-    yTrain = np.concatenate([y_aa, y_au])
+    x_train = np.vstack([x_aa, x_au])
+    y_train = np.concatenate([y_aa, y_au])
 
-    return np.array(xTrain), np.array(yTrain), np.array(xTest), np.array(yTest), aelfric_train_sample
-
-
-'''
-def getIdAccuracy(model, device, data, moreprints):
-    textBuckets = {}
-
-    model.eval()
-    with torch.no_grad():
-        for x, y, ids in data:
-            x = x.to(device)
-            y = y.to(device)
-
-            out = model(x)
-            preds = out.argmax(dim=1)             
-
-            for id_value, y_val, pred in zip(ids, y.cpu(), preds.cpu()):
-                y_val = y_val.item()
-                pred = pred.item()
-
-                if id_value not in textBuckets:
-                    # store: [true_label, pred0_count, pred1_count]
-                    textBuckets[id_value] = [y_val, 0, 0, []]
-
-                textBuckets[id_value][1 if pred == 0 else 2] += 1
-                textBuckets[id_value][3].append((y_val == pred) + (y_val/2))
-
-    totalAccuracy = 0
-    goodAccuracy = 0
-    totalCount = 0
-
-    textAccuracies = []
-
-    matrix = []
-    texts = []
-
-    for key, count in textBuckets.items():
-        true_label, pred0, pred1, listOfPred = count
-        total = pred0 + pred1
-
-        if true_label == 0:
-            accuracy = pred0 / total * 100
-        else:
-            accuracy = pred1 / total * 100
-
-        if accuracy >= 50:
-            totalAccuracy += 1
-        if accuracy == 100:
-            goodAccuracy += 1
-        totalCount += 1
-        if(moreprints):
-            print(f"{key} | value {true_label} | size {total} : {accuracy:.2f}%")
-
-        matrix.append(listOfPred)
-        texts.append(key)
-
-        textAccuracies.append(accuracy)
-
-    max_len = max(len(row) for row in matrix)
-
-    matrix = np.array([
-        row + [2] * (max_len - len(row))for row in matrix
-    ]).T
-
-    cmap = ListedColormap(["red","#FFAAAA","blue", "lightblue", "white"])
-    
-    plt.figure(figsize=(35,8))
-    plt.imshow(matrix, cmap=cmap, aspect='auto')
-    im = sns.heatmap(matrix, cbar=False, cmap=cmap, xticklabels=texts, linewidths=0.05, linecolor="white",) #, yticklabels=yAxis, xticklabels=yAxis)
-    im.invert_yaxis()
-
-    plt.title("List of Chunks")
-    plt.xlabel("Texts")
-    plt.ylabel("Chunks")
-    plt.savefig(f"data/visualizations/chunkheatmap.png")
-
-    print(f"Chunk Accuracy {totalAccuracy/totalCount*100:.2f}%")
-    print(f"Good Accuracy {goodAccuracy/totalCount*100:.2f}%")
-
-    return textAccuracies
-'''
+    return np.array(x_train), np.array(y_train), np.array(x_test), np.array(y_test), a_embeddings
 
 
-def train_linear_model(X_train, y_train, X_test, y_test, aelfric_train_sample, num_epochs=5, batch_size=32):
-    X_tensor = torch.tensor(X_train, dtype=torch.float32).to(device)
+"""
+Creates the model, trains it on the training data, and evaluates it on both training and testing data.
+It returns the trained model along with dictionaries containing in-sample and out-of-sample accuracies for overall, Aelfric, and Unknown classes.
+"""
+def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray, a_embeddings: np.ndarray, num_epochs: int = 5, batch_size: int = 32):
+    x_tensor = torch.tensor(x_train, dtype=torch.float32).to(device)
     y_tensor = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1).to(device)  # shape (N_total, 1)
 
     # Create per-sample weights: slightly downweight Unknown (-1)
@@ -401,13 +258,13 @@ def train_linear_model(X_train, y_train, X_test, y_test, aelfric_train_sample, n
     #weights[y_train == -1] = 0.9
     #weights_tensor = torch.tensor(weights, dtype=torch.float32).unsqueeze(1).to(device)
 
-    model = LinearBinaryModel(input_dim=X_train.shape[1]).to(device)
+    model = LinearBinaryModel(input_dim=x_train.shape[1]).to(device)
 
     criterion = nn.MSELoss() #reduction="none")  
     optimizer = torch.optim.Adam(model.parameters(), 5e-5)
 
     # Dataset with weights
-    dataset = torch.utils.data.TensorDataset(X_tensor, y_tensor)
+    dataset = torch.utils.data.TensorDataset(x_tensor, y_tensor)
     loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     in_acc_total = []
@@ -417,25 +274,25 @@ def train_linear_model(X_train, y_train, X_test, y_test, aelfric_train_sample, n
     out_acc_aelfric = []
     out_acc_unknown = []
 
-    for epoch in range(num_epochs):
-        for X_batch, y_batch in loader:
-            X_batch = X_batch.to(device)
+    for epoch in tqdm(range(num_epochs)):
+        for x_batch, y_batch in loader:
+            x_batch = x_batch.to(device)
             y_batch = y_batch.to(device)
 
             optimizer.zero_grad()
-            s = model(X_batch)  # predicted score
+            s = model(x_batch)  # predicted score
             loss = criterion(s, y_batch)
             loss.backward()
             optimizer.step()
 
         # After each epoch, save in-sample and out-of-sample accuracy
-        in_predictions = predict_linear_model(model, X_train)
+        in_predictions = predict_linear_model(model, x_train)
         in_acc_total.append(accuracy(y_train, in_predictions)*100)
         in_accs = class_accuracy(y_train, in_predictions)
         in_acc_aelfric.append(in_accs["Aelfric"]*100)
         in_acc_unknown.append(in_accs["Unknown"]*100)
 
-        out_predictions = predict_linear_model(model, X_test, aelfric_train_sample)
+        out_predictions = predict_linear_model(model, x_test, a_embeddings)
         out_acc_total.append(accuracy(y_test, out_predictions)*100)
         out_accs = class_accuracy(y_test, out_predictions)
         out_acc_aelfric.append(out_accs["Aelfric"]*100)
@@ -446,56 +303,69 @@ def train_linear_model(X_train, y_train, X_test, y_test, aelfric_train_sample, n
            {"Accuracy": out_acc_total, "Aelfric Accuracy": out_acc_aelfric, "Unknown Accuracy": out_acc_unknown}
 
 
-def predict_linear_model(model, x_new, aelfric_train_sample=None):
+"""
+Predicts the class (+1 for Aelfric, 0 for Unknown) for new embeddings using the trained model.
+If Aelfric embeddings are provided, it pairs each new embedding with all Aelfric embeddings to make predictions based on the average score.
+"""
+def predict_linear_model(model: LinearBinaryModel, x_new: np.ndarray, a_embeddings: np.ndarray = None) -> list[int]:
     """
     x_new: np.array of shape (1024,) or (N, 1024)
-    returns: list of +1 (Aelfric) or -1 (Unknown)
+    returns: list of +1 (Aelfric) or 0 (Unknown)
     """
-    if aelfric_train_sample is None:
+    if a_embeddings is None:
         # Standard case (already 2048-dim)
         if x_new.ndim == 1:
             x_new = x_new[np.newaxis, :]
         with torch.no_grad():
-            X_tensor = torch.tensor(x_new, dtype=torch.float32).to(device)
-            s = model(X_tensor).squeeze().detach().cpu().numpy()
-        return [1 if score > 0 else -1 for score in s]
+            x_tensor = torch.tensor(x_new, dtype=torch.float32).to(device)
+            s = model(x_tensor).squeeze().detach().cpu().numpy()
+        return [1 if score > 0.5 else 0 for score in s]
     else:
         # Pair each single 1024-dim test embedding with all Aelfric train embeddings
         preds = []
         for test_emb in x_new:
-            pred = predict_single_embedding(model, test_emb, aelfric_train_sample)
+            pred = predict_single_embedding(model, test_emb, a_embeddings)
             preds.append(pred)
         return preds
     
-
-def predict_single_embedding(model, test_emb, aelfric_train_sample):
+"""
+Predicts the class (+1 for Aelfric, 0 for Unknown) for a single embedding by pairing it with a sample of Aelfric embeddings and averaging the model's scores.
+(MIGHT CHANGE HOW WE AVERAGE SCORES INSTEAD OF JUST TAKING THE MEAN, MAYBE WEIGHT BY CONFIDENCE OR SOMETHING)
+"""
+def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_embeddings: list[np.ndarray]) -> int:
     """
     test_emb: np.array of shape (1024,)
-    aelfric_train_sample: list of np.arrays of shape (1024,)
-    Returns: single +1/-1 prediction for the test embedding
+    a_embeddings: list of np.arrays of shape (1024,)
+    Returns: single +1/0 prediction for the test embedding
     """
 
     # Sample fewer Aelfric embeddings for speed
-    aelfrics = random.sample(aelfric_train_sample, k=min(len(aelfric_train_sample), 50))
+    aelfrics = random.sample(a_embeddings.tolist(), k=min(len(a_embeddings), 100))
 
     pairs = [np.concatenate([a, test_emb]) for a in aelfrics]  # shape (N_a, 2048)
-    X_tensor = torch.tensor(np.stack(pairs), dtype=torch.float32).to(device)
+    x_tensor = torch.tensor(np.stack(pairs), dtype=torch.float32).to(device)
 
     with torch.no_grad():
-        scores = model(X_tensor).squeeze().detach().cpu().numpy()  # one score per pair
+        scores = model(x_tensor).squeeze().detach().cpu().numpy()  # one score per pair
 
     # Aggregate:
     avg_score = np.mean(scores)
-    return 1 if avg_score > 0 else -1
-    
+    return 1 if avg_score > 0.5 else 0
 
-def accuracy(y_true, y_pred):
+
+"""
+Calculates overall accuracy by comparing true labels with predicted labels.
+"""
+def accuracy(y_true: list[int], y_pred: list[int]) -> float:
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
     return np.mean(y_true == y_pred)
 
 
-def class_accuracy(y_true, y_pred):
+"""
+Calculates class-specific accuracy for Aelfric and Unknown classes by comparing true labels with predicted labels.
+"""
+def class_accuracy(y_true: list[int], y_pred: list[int]) -> dict:
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
     
@@ -506,15 +376,17 @@ def class_accuracy(y_true, y_pred):
     else:
         acc_aelfric = np.nan
     
-    unknown_mask = y_true == -1
+    unknown_mask = y_true == 0
     if np.any(unknown_mask):
-        acc_unknown = np.mean(y_pred[unknown_mask] == -1)
+        acc_unknown = np.mean(y_pred[unknown_mask] == 0)
     else:
         acc_unknown = np.nan
     
     return {"Aelfric": acc_aelfric, "Unknown": acc_unknown}
 
-
+"""
+Calculates error based on accuracy dictionaries for in-sample and out-of-sample data.
+"""
 def error(accs : dict) -> dict: 
     errors = {}
     errors["Error"] = 100 - np.array(accs["Accuracy"])
@@ -522,7 +394,9 @@ def error(accs : dict) -> dict:
     errors["Unknown Error"] = 100 - np.array(accs["Unknown Accuracy"])
     return errors
 
-
+"""
+Save the model to a file
+"""
 def save_model(model, path):
     torch.save(model.state_dict(), path)
     print(f"Model saved to {path}") 
@@ -532,12 +406,12 @@ def main():
     logger = setup_logging()
 
     # Train the model
-    X_train, y_train, X_test, y_test, aelfric_train_sample = prepare_data()
-    model, in_accs, out_accs = train_linear_model(X_train, y_train, X_test, y_test, aelfric_train_sample)
+    x_train, y_train, x_test, y_test, a_embeddings = prepare_data()
+    model, in_accs, out_accs = train_linear_model(x_train, y_train, x_test, y_test, a_embeddings)
     logger.info("Training complete.")
 
     # Find and print accuracies
-    y_pred = predict_linear_model(model, X_test, aelfric_train_sample)
+    y_pred = predict_linear_model(model, x_test, a_embeddings)
 
     acc_overall = accuracy(y_test, y_pred)
     class_acc = class_accuracy(y_test, y_pred)
@@ -559,8 +433,6 @@ def main():
     visualization(model, in_errors, "In Sample Error", "inSample", "")
     visualization(model, out_errors, "Out of Sample Error", "outSample", "")
     visualization(model, {"In Sample Error": in_errors["Error"], "Out of Sample Error": out_errors["Error"]}, "Both Error", "bothSample", "")
-
-    # Current main problem with the code is that the embeddings might not be paired in the load_data function
 
 
 if __name__ == '__main__':

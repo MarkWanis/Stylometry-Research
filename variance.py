@@ -18,4 +18,19 @@ def find_variance(results_dir: str):
 
     return np.sum(np.var(embeddings, axis=0))
 
-print(find_variance('data/sorted_embeddings/'))
+def find_items(results_dir: str):
+    embeddings = []
+
+    '''with open(Path(results_dir + "Aelfric/chunks/B1.1.1_chunk_0.json"), 'r') as file:
+        data = json.load(file)
+        for key in data.keys():
+            print(key)
+        for value in data.values():
+            if 'embedding' in value:
+                print(data[value])
+        #print(data.items())'''
+        
+    return len(list(Path(results_dir + "Unknown/chunks").glob('*.json')))
+
+
+print(find_items('data/sorted_embeddings/'))
