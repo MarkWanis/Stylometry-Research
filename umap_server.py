@@ -53,7 +53,7 @@ def create_visualization(embeddings: np.ndarray, ids: List[str], output_dir: str
 def generate_umap():
     logger = setup_logging()
     try:
-        results_dir = "data/embedding_results"
+        results_dir = "data/sorted_embeddings/Aelfric"
         output_dir = "data/visualizations"
         Path(output_dir).mkdir(exist_ok=True)
         
