@@ -26,7 +26,7 @@ print("Using device:", device)
 
 
 class LinearBinaryModel(nn.Module):
-    def __init__(self, input_dim=2048, hidden_dim=256, dropout_rate=0.5):
+    def __init__(self, input_dim=2048, hidden_dim=512, dropout_rate=0.2):
         super().__init__()
         self.hidden = nn.Linear(input_dim, hidden_dim)  # input → hidden
         self.relu = nn.ReLU()                            # non-linearity
@@ -67,6 +67,12 @@ def setup_logging():
 Creates a visualization of the training and testing errors over epochs. 
 The function dynamically adjusts the figure size based on the number of lines in the model description to ensure that all text is visible. 
 It plots the error lines for different classes and saves the resulting figure as a PNG file.
+
+model: The trained model whose description will be displayed below the plot.
+lines: A dictionary where keys are labels (e.g., "In Sample Error") and values are lists of error values over epochs.
+title: The title of the plot.
+filename: The filename for saving the plot (without extension).
+other_data: Additional text data to display below the plot (e.g., hyperparameters or notes).
 """
 def visualization(model: LinearBinaryModel, lines : dict, title: str, filename: str, other_data: str) -> None:
     model_string = str(model)
@@ -119,8 +125,12 @@ Returns list of embeddings and ids
 This function loads embeddings from JSON files in the specified directory. 
 It collects embeddings and their associated IDs, while also keeping track of unique text IDs. 
 The function limits the number of chunks processed to 250 for efficiency.
+
+results_dir: Directory containing the JSON files with embeddings.
+max_num_of_texts: Maximum number of embeddings to process (default is 250).
+Returns: A tuple containing a NumPy array of embeddings and a list of unique text IDs.
 """
-def load_embeddings(results_dir: str, max_num_of_texts: int = 250) -> tuple[np.ndarray, list]:
+def load_embeddings(results_dir: str, max_num_of_texts: int = 500) -> tuple[np.ndarray, list]:
     embeddings: list = []
     ids: list = []
     num_of_texts = 0
@@ -146,9 +156,15 @@ def load_embeddings(results_dir: str, max_num_of_texts: int = 250) -> tuple[np.n
 """
 THIS ONLY WORKS ON TEXT LEVEL, NOT CHUNK LEVEL. NEED TO FIX THIS TO KEEP CHUNKS TOGETHER.
 
-Loads Aelfric and Unknown embeddings, splits them into training and testing sets, and returns the corresponding embeddings, labels, and IDs.
+Loads Aelfric and Unknown embeddings and splits them into training and testing sets
+
+a_path: Path to the directory containing Aelfric embeddings.
+u_path: Path to the directory containing Unknown embeddings.
+test_split: The fraction of the dataset to include in the testing set.
+random_seed: The seed for random number generation.
+Returns: A tuple containing training embeddings, testing embeddings, training labels, testing labels, training IDs, testing IDs, and Aelfric embeddings.
 """
-def load_data(a_path: str, u_path: str, train_split: float = 0.2, random_seed: int = 0) -> tuple[np.ndarray, np.ndarray, list[int], list[int], list[str], list[str], np.ndarray]:
+def load_data(config: dict) -> tuple[np.ndarray, np.ndarray, list[int], list[int], list[str], list[str], np.ndarray]:
     a_embeddings = np.array([]) # np.array of Aelfric embeddings
     a_ids: list[str] = [] # List of Aelfric IDs
     
@@ -160,10 +176,10 @@ def load_data(a_path: str, u_path: str, train_split: float = 0.2, random_seed: i
     ids: list[str] = [] # List of all IDs
 
     # Get the Aelfric embeddings
-    a_embeddings, a_ids = load_embeddings(a_path)
+    a_embeddings, a_ids = load_embeddings(config["aelfric_path"], config["max_num_of_texts"])
 
     # Get the Unknown embeddings
-    u_embeddings, u_ids = load_embeddings(u_path)
+    u_embeddings, u_ids = load_embeddings(config["unknown_path"], config["max_num_of_texts"])
 
     # Create the list of all the embeddings, ids, and labels
     embeddings = np.concatenate((a_embeddings, u_embeddings), axis=0) 
@@ -171,16 +187,23 @@ def load_data(a_path: str, u_path: str, train_split: float = 0.2, random_seed: i
     ids = a_ids + u_ids
 
     # Randomly split the full works while keeping embeddings, IDs, and labels aligned
-    x_train, x_test, y_train, y_test, id_train, id_test = train_test_split(embeddings, y, ids, test_size=train_split, random_state=random_seed, stratify=y)
+    x_train, x_test, y_train, y_test, id_train, id_test = train_test_split(embeddings, y, ids, test_size=config["test_split"], random_state=config["random_seed"], stratify=y)
 
-    return x_train, x_test, y_train, y_test, id_train, id_test, a_embeddings
+    # Save the Aelfric training embeddings for later use in predictions
+    a_train_embeddings = x_train[np.array(y_train) == 1]  # Select embeddings where label is 1 (Aelfric)
+
+    return x_train, x_test, y_train, y_test, id_train, id_test, a_train_embeddings
 
 
 """
 Create Aelfric-Aelfric (positive) and Aelfric-Unknown (zero) pairs.
-Returns two lists of concatenated embeddings.
+
+embs: List of embeddings (np.ndarray).
+labels: List of corresponding labels (1 for Aelfric, 0 for Unknown).
+num_samples: The number of samples to draw from each class.
+Returns: Two lists of concatenated embeddings.
 """
-def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int =250) -> tuple[list[np.ndarray], list[np.ndarray]]:
+def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int = 250) -> tuple[list[np.ndarray], list[np.ndarray]]:
     a_embs = []
     u_embs = []
 
@@ -207,22 +230,22 @@ def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int =
             au_pairs.append(np.concatenate([emb_a, emb_b]))
 
     # Unknown-Aelfric pairs (0)
-    """
     for emb_a in u_sample:
         for emb_b in a_sample:
             au_pairs.append(np.concatenate([emb_a, emb_b]))
 
-    au_sample = random.sample(au_pairs, k=min(num_samples, len(au_pairs)))  # Sample to limit size
-    """
+    au_sample = random.sample(au_pairs, k=min(num_samples*3, len(au_pairs)))  # Sample to limit size
 
-    return aa_pairs, au_pairs # au_sample
+    return aa_pairs, au_sample
 
 
 """
-Loads the data, prepares training pairs, and returns training and testing sets along with Aelfric embeddings for later use in predictions.
+Loads the data and prepares training pairs
+
+Returns: Training and testing sets along with Aelfric embeddings for later use in predictions.
 """
-def prepare_data() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    x_train_old, x_test, y_train_old, y_test, _, _, a_embeddings = load_data("data/sorted_embeddings/Aelfric", "data/sorted_embeddings/Unknown", 0.2, 42)
+def prepare_data(config: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    x_train_old, x_test, y_train_old, y_test, _, _, a_train_embeddings = load_data(config) #"data/sorted_embeddings/Aelfric", "data/sorted_embeddings/Unknown", 0.5, 13)
     
     print("Loaded embeddings...")
     print(f"Train Embeddings: {x_train_old} ({len(x_train_old)})")
@@ -230,7 +253,7 @@ def prepare_data() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.n
     print(f"Test Embeddings: {x_test} ({len(x_test)})")
     print(f"Test Labels: {y_test} ({len(y_test)})")
 
-    aa_pairs, au_pairs = pair_embeddings(x_train_old, y_train_old, num_samples=250)
+    aa_pairs, au_pairs = pair_embeddings(x_train_old, y_train_old, num_samples=config["num_samples"])
 
     # --- Combine and label training pairs ---
     x_aa = np.stack(aa_pairs)
@@ -242,14 +265,22 @@ def prepare_data() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.n
     x_train = np.vstack([x_aa, x_au])
     y_train = np.concatenate([y_aa, y_au])
 
-    return np.array(x_train), np.array(y_train), np.array(x_test), np.array(y_test), a_embeddings
+    return np.array(x_train), np.array(y_train), np.array(x_test), np.array(y_test), a_train_embeddings
 
 
 """
 Creates the model, trains it on the training data, and evaluates it on both training and testing data.
-It returns the trained model along with dictionaries containing in-sample and out-of-sample accuracies for overall, Aelfric, and Unknown classes.
+
+x_train: Training embeddings (np.ndarray).
+y_train: Training labels (np.ndarray).
+x_test: Testing embeddings (np.ndarray).
+y_test: Testing labels (np.ndarray).
+a_train_embeddings: Aelfric training embeddings (np.ndarray).
+num_epochs: The number of epochs to train the model.
+batch_size: The batch size for training.
+Returns: The trained model along with dictionaries containing in-sample and out-of-sample accuracies for overall, Aelfric, and Unknown classes.
 """
-def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray, a_embeddings: np.ndarray, num_epochs: int = 5, batch_size: int = 32):
+def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray, a_train_embeddings: np.ndarray, config: dict) -> tuple[LinearBinaryModel, dict, dict]:
     x_tensor = torch.tensor(x_train, dtype=torch.float32).to(device)
     y_tensor = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1).to(device)  # shape (N_total, 1)
 
@@ -258,14 +289,14 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     #weights[y_train == -1] = 0.9
     #weights_tensor = torch.tensor(weights, dtype=torch.float32).unsqueeze(1).to(device)
 
-    model = LinearBinaryModel(input_dim=x_train.shape[1]).to(device)
+    model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dim=config["hidden_dim"], dropout=config["dropout"]).to(device)
 
-    criterion = nn.MSELoss() #reduction="none")  
+    criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), 5e-5)
 
     # Dataset with weights
     dataset = torch.utils.data.TensorDataset(x_tensor, y_tensor)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    loader = torch.utils.data.DataLoader(dataset, batch_size=config["batch_size"], shuffle=True)
 
     in_acc_total = []
     in_acc_aelfric = []
@@ -274,16 +305,23 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     out_acc_aelfric = []
     out_acc_unknown = []
 
-    for epoch in tqdm(range(num_epochs)):
+    for epoch in tqdm(range(config["num_epochs"]), desc="Training Epochs"):
+
+        # Train for one epoch
+        model.train()
+
         for x_batch, y_batch in loader:
             x_batch = x_batch.to(device)
             y_batch = y_batch.to(device)
 
             optimizer.zero_grad()
-            s = model(x_batch)  # predicted score
-            loss = criterion(s, y_batch)
+            logits = model(x_batch)  # predicted score
+            loss = criterion(logits, y_batch)
             loss.backward()
             optimizer.step()
+
+        # Turns off dropout for evaluation
+        model.eval()
 
         # After each epoch, save in-sample and out-of-sample accuracy
         in_predictions = predict_linear_model(model, x_train)
@@ -292,7 +330,7 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
         in_acc_aelfric.append(in_accs["Aelfric"]*100)
         in_acc_unknown.append(in_accs["Unknown"]*100)
 
-        out_predictions = predict_linear_model(model, x_test, a_embeddings)
+        out_predictions = predict_linear_model(model, x_test, a_train_embeddings)
         out_acc_total.append(accuracy(y_test, out_predictions)*100)
         out_accs = class_accuracy(y_test, out_predictions)
         out_acc_aelfric.append(out_accs["Aelfric"]*100)
@@ -306,55 +344,125 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
 """
 Predicts the class (+1 for Aelfric, 0 for Unknown) for new embeddings using the trained model.
 If Aelfric embeddings are provided, it pairs each new embedding with all Aelfric embeddings to make predictions based on the average score.
+
+model: The trained LinearBinaryModel.
+x_new: New embeddings to classify (np.ndarray of shape (N, 1024) or (1024,)).
+a_train_embeddings: Optional Aelfric embeddings to pair with new embeddings for prediction.
+Returns: A list of predicted classes (+1 for Aelfric, 0 for Unknown) for each new embedding.
 """
-def predict_linear_model(model: LinearBinaryModel, x_new: np.ndarray, a_embeddings: np.ndarray = None) -> list[int]:
-    """
-    x_new: np.array of shape (1024,) or (N, 1024)
-    returns: list of +1 (Aelfric) or 0 (Unknown)
-    """
-    if a_embeddings is None:
+def predict_linear_model(model: LinearBinaryModel, x_new: np.ndarray, a_train_embeddings: np.ndarray = None) -> list[int]:
+    if a_train_embeddings is None:
         # Standard case (already 2048-dim)
         if x_new.ndim == 1:
             x_new = x_new[np.newaxis, :]
+
+        # Double checks that we're not training
+        model.eval()
+
         with torch.no_grad():
             x_tensor = torch.tensor(x_new, dtype=torch.float32).to(device)
-            s = model(x_tensor).squeeze().detach().cpu().numpy()
-        return [1 if score > 0.5 else 0 for score in s]
+            logits = model(x_tensor).squeeze()
+            probs = torch.sigmoid(logits).cpu().numpy()
+
+        return [1 if prob > 0.5 else 0 for prob in probs]
+    
     else:
         # Pair each single 1024-dim test embedding with all Aelfric train embeddings
         preds = []
         for test_emb in x_new:
-            pred = predict_single_embedding(model, test_emb, a_embeddings)
+            pred = predict_single_embedding(model, test_emb, a_train_embeddings)
             preds.append(pred)
         return preds
     
 """
 Predicts the class (+1 for Aelfric, 0 for Unknown) for a single embedding by pairing it with a sample of Aelfric embeddings and averaging the model's scores.
 (MIGHT CHANGE HOW WE AVERAGE SCORES INSTEAD OF JUST TAKING THE MEAN, MAYBE WEIGHT BY CONFIDENCE OR SOMETHING)
-"""
-def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_embeddings: list[np.ndarray]) -> int:
-    """
-    test_emb: np.array of shape (1024,)
-    a_embeddings: list of np.arrays of shape (1024,)
-    Returns: single +1/0 prediction for the test embedding
-    """
 
+model: The trained LinearBinaryModel.
+test_emb: A single embedding to classify (np.ndarray of shape (1024,)).
+a_train_embeddings: A list of Aelfric training embeddings to pair with the test embedding for prediction.
+Returns: A single predicted class (+1 for Aelfric, 0 for Unknown) for the test embedding based on the average score from the model.
+"""
+def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_train_embeddings: list[np.ndarray]) -> int:
     # Sample fewer Aelfric embeddings for speed
-    aelfrics = random.sample(a_embeddings.tolist(), k=min(len(a_embeddings), 100))
+    aelfrics = random.sample(a_train_embeddings.tolist(), k=min(len(a_train_embeddings), 100))
 
     pairs = [np.concatenate([a, test_emb]) for a in aelfrics]  # shape (N_a, 2048)
     x_tensor = torch.tensor(np.stack(pairs), dtype=torch.float32).to(device)
 
+    # Switches to eval
+    model.eval()
+
     with torch.no_grad():
-        scores = model(x_tensor).squeeze().detach().cpu().numpy()  # one score per pair
+        logits = model(x_tensor).squeeze()  # one score per pair
+        probs = torch.sigmoid(logits).cpu().numpy()  # convert to probabilities
 
     # Aggregate:
-    avg_score = np.mean(scores)
+    avg_score = np.mean(probs)  # average probability across all pairs
     return 1 if avg_score > 0.5 else 0
+
+
+def inspect_test_scores(model, x_test, y_test, a_train_embeddings):
+    model.eval()
+
+    aelfric_scores = []
+    unknown_scores = []
+
+    for test_emb, true_label in zip(x_test, y_test):
+        # Pair this test embedding with Aelfric reference embeddings
+        aelfrics = random.sample(
+            a_train_embeddings.tolist(),
+            k=min(len(a_train_embeddings), 100)
+        )
+
+        pairs = [np.concatenate([a, test_emb]) for a in aelfrics]
+        x_tensor = torch.tensor(
+            np.stack(pairs),
+            dtype=torch.float32
+        ).to(device)
+
+        with torch.no_grad():
+            logits = model(x_tensor).squeeze()
+            probs = torch.sigmoid(logits).cpu().numpy()
+
+        avg_score = np.mean(probs)
+
+        if true_label == 1:
+            aelfric_scores.append(avg_score)
+        else:
+            unknown_scores.append(avg_score)
+
+    print("\n===== RAW SCORE DISTRIBUTION =====")
+
+    print("\nAelfric:")
+    print(f"  Mean: {np.mean(aelfric_scores):.4f}")
+    print(f"  Min:  {np.min(aelfric_scores):.4f}")
+    print(f"  Max:  {np.max(aelfric_scores):.4f}")
+    print(f"  Std:  {np.std(aelfric_scores):.4f}")
+
+    print("\nUnknown:")
+    print(f"  Mean: {np.mean(unknown_scores):.4f}")
+    print(f"  Min:  {np.min(unknown_scores):.4f}")
+    print(f"  Max:  {np.max(unknown_scores):.4f}")
+    print(f"  Std:  {np.std(unknown_scores):.4f}")
+
+    print("\nIndividual scores:")
+
+    print("\nAelfric:")
+    for score in aelfric_scores:
+        print(f"  {score:.4f}")
+
+    print("\nUnknown:")
+    for score in unknown_scores:
+        print(f"  {score:.4f}")
 
 
 """
 Calculates overall accuracy by comparing true labels with predicted labels.
+
+y_true: List of true labels (+1 for Aelfric, 0 for Unknown).
+y_pred: List of predicted labels (+1 for Aelfric, 0 for Unknown).
+Returns: The overall accuracy as a float (between 0 and 1).
 """
 def accuracy(y_true: list[int], y_pred: list[int]) -> float:
     y_true = np.array(y_true)
@@ -364,6 +472,10 @@ def accuracy(y_true: list[int], y_pred: list[int]) -> float:
 
 """
 Calculates class-specific accuracy for Aelfric and Unknown classes by comparing true labels with predicted labels.
+
+y_true: List of true labels (+1 for Aelfric, 0 for Unknown).
+y_pred: List of predicted labels (+1 for Aelfric, 0 for Unknown).
+Returns: A dictionary containing the accuracy for each class, with keys "Aelfric" and "Unknown".
 """
 def class_accuracy(y_true: list[int], y_pred: list[int]) -> dict:
     y_true = np.array(y_true)
@@ -386,6 +498,9 @@ def class_accuracy(y_true: list[int], y_pred: list[int]) -> dict:
 
 """
 Calculates error based on accuracy dictionaries for in-sample and out-of-sample data.
+
+accs: A dictionary containing accuracy values for overall, Aelfric, and Unknown classes.
+Returns: A dictionary containing error values for overall, Aelfric, and Unknown classes, calculated as 100 minus the corresponding accuracy values.
 """
 def error(accs : dict) -> dict: 
     errors = {}
@@ -405,13 +520,54 @@ def save_model(model, path):
 def main():
     logger = setup_logging()
 
+    config = {
+        "input_dim": 2048,
+        "hidden_dim": 1024,
+        "dropout": 0.5,
+        "num_epochs": 20,
+        "batch_size": 32,
+        "test_split": 0.5,
+        "random_seed": 13,
+        "num_samples": 250,
+        "aelfric_path": "data/sorted_embeddings/Aelfric",
+        "unknown_path": "data/sorted_embeddings/Unknown"
+    }
+
     # Train the model
-    x_train, y_train, x_test, y_test, a_embeddings = prepare_data()
-    model, in_accs, out_accs = train_linear_model(x_train, y_train, x_test, y_test, a_embeddings)
+    x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data(config)
+
+    print("\n===== DATA DISTRIBUTION =====")
+    print("Train:")
+    print("  Aelfric:", np.sum(y_train == 1))
+    print("  Unknown:", np.sum(y_train == 0))
+    print("Train embeddings shape:", x_train.shape)
+    print(x_train)
+    print(y_train)
+
+    print("Test:")
+    print("  Aelfric:", np.sum(y_test == 1))
+    print("  Unknown:", np.sum(y_test == 0))
+
+    print("Aelfric training embeddings:", len(a_train_embeddings))
+    print("Aelfric test embeddings:", np.sum(y_test == 1))
+    print("Unknown test embeddings:", np.sum(y_test == 0))
+    print("Aelfric training embeddings shape:", a_train_embeddings.shape)
+    print(a_train_embeddings)
+
+    model, in_accs, out_accs = train_linear_model(x_train, y_train, x_test, y_test, a_train_embeddings, config)
     logger.info("Training complete.")
 
+    inspect_test_scores(model, x_test, y_test, a_train_embeddings)
+
     # Find and print accuracies
-    y_pred = predict_linear_model(model, x_test, a_embeddings)
+    y_pred = predict_linear_model(model, x_test, a_train_embeddings)
+
+    print("\n===== PREDICTIONS =====")
+    print("Predicted Aelfric:", np.sum(np.array(y_pred) == 1))
+    print("Predicted Unknown:", np.sum(np.array(y_pred) == 0))
+
+    print("Actual Aelfric:", np.sum(np.array(y_test) == 1))
+    print("Actual Unknown:", np.sum(np.array(y_test) == 0))
 
     acc_overall = accuracy(y_test, y_pred)
     class_acc = class_accuracy(y_test, y_pred)
