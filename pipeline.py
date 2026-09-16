@@ -11,6 +11,16 @@ import shutil
 from tqdm import tqdm
 import os
 
+
+"""
+Set up logging for the pipeline. 
+This function creates a logger that logs messages to both a file and the console. 
+The log file is stored in the specified log directory, and it rotates when it reaches a certain size. 
+The logger is configured to log messages at different levels for the file and console.
+
+log_dir: The directory where the log file will be stored. Defaults to "logs".
+Returns: A logging.Logger object that can be used to log messages throughout the pipeline.
+"""
 def setup_logging(log_dir: str = "logs") -> logging.Logger:
     
     # Make the logging directory if it isn't already made
@@ -45,7 +55,15 @@ def setup_logging(log_dir: str = "logs") -> logging.Logger:
     
     return logger
 
-# Split text into chunks based on token count, handling long sequences safely.
+"""
+Split text into chunks based on token count, handling long sequences safely. 
+
+text: The input text to be chunked.
+tokenizer: The tokenizer used to encode the text into tokens.
+logger: The logger used for logging warnings and errors.
+chunk_size: The maximum number of tokens allowed in each chunk. Defaults to 512.
+Returns: A list of chunked text.
+"""
 def chunk_text(text: str, tokenizer, logger, chunk_size: int = 512) -> list:
     chunks = []
 
@@ -158,7 +176,22 @@ def chunk_text(text: str, tokenizer, logger, chunk_size: int = 512) -> list:
     # The list of chunks is returned
     return chunks
 
+
+"""
+This class is the main pipeline for processing text files and generating embeddings. 
+It handles reading input files, chunking the text, generating embeddings using a pre-trained model, and saving the results. 
+It also manages logging and error handling throughout the process.
+"""
 class StylometryPipeline:
+    """
+    Initialize the StylometryPipeline with specified directories for input, processed files, error files, and embedding results.
+    Sets up logging, creates necessary directories, and loads the NLP models for tokenization and embedding generation.
+
+    input_dir: Directory where input text files are located. Defaults to "data/input".
+    processed_dir: Directory where successfully processed files will be moved. Defaults to "data/processed".
+    error_dir: Directory where files that encountered errors during processing will be moved. Defaults to "data/error".
+    results_dir: Directory where embedding results will be saved. Defaults to "data/embedding_results".
+    """
     def __init__(self, input_dir: str = "data/input", 
                  processed_dir: str = "data/processed",
                  error_dir: str = "data/error",
@@ -191,7 +224,12 @@ class StylometryPipeline:
         # The .eval() is setting the model to evaluation mode (which is different than if we wanted to train the model)
         self.model.eval()
 
-    # Process a single chunk of text and return its embedding.
+    """
+    Process a single chunk of text and return its embedding.
+
+    chunk: The input text chunk to be processed.
+    Returns: A numpy array representing the embedding of the input chunk.
+    """
     def process_chunk(self, chunk: str) -> np.ndarray:
         try:
             # This is creating the tokens again, but this time it pads the tokens, so every input is exactly 512 tokens long (if it somehow was too long, it will also truncate it)
@@ -221,8 +259,15 @@ class StylometryPipeline:
             self.logger.error(f"Error processing chunk: {str(e)}")
             raise
 
+
+    """
+    Process a single text file with chunking.
+    From start to finish, this function reads the text file, splits it into chunks, generates embeddings for each chunk, averages the embeddings, and saves the results to a JSON file.
+
+    filepath: The path to the input text file.
+    Returns: A tuple containing the job ID and the averaged embedding.
+    """
     def process_file(self, filepath: Path) -> Tuple[str, np.ndarray]:
-        # Process a single text file with chunking.
         self.logger.info(f"Processing file: {filepath}")
         
         try:
@@ -309,6 +354,11 @@ class StylometryPipeline:
             shutil.move(str(filepath), str(error_path))
             raise
 
+
+"""
+Main function to run the stylometry pipeline.
+This function initializes the StylometryPipeline and processes all text files in the specified input directory.
+"""
 def main():
     pipeline = StylometryPipeline()
     
