@@ -176,10 +176,10 @@ def load_data(config: dict) -> tuple[np.ndarray, np.ndarray, list[int], list[int
     ids: list[str] = [] # List of all IDs
 
     # Get the Aelfric embeddings
-    a_embeddings, a_ids = load_embeddings(config["aelfric_path"], config["max_num_of_texts"])
+    a_embeddings, a_ids = load_embeddings(config["aelfric_path"], config["num_samples"])
 
     # Get the Unknown embeddings
-    u_embeddings, u_ids = load_embeddings(config["unknown_path"], config["max_num_of_texts"])
+    u_embeddings, u_ids = load_embeddings(config["unknown_path"], config["num_samples"])
 
     # Create the list of all the embeddings, ids, and labels
     embeddings = np.concatenate((a_embeddings, u_embeddings), axis=0) 
@@ -203,7 +203,7 @@ labels: List of corresponding labels (1 for Aelfric, 0 for Unknown).
 num_samples: The number of samples to draw from each class.
 Returns: Two lists of concatenated embeddings.
 """
-def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int = 250) -> tuple[list[np.ndarray], list[np.ndarray]]:
+def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int = 250, random_seed: int = 42) -> tuple[list[np.ndarray], list[np.ndarray]]:
     a_embs = []
     u_embs = []
 
@@ -213,7 +213,9 @@ def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int =
         else:
             u_embs.append(emb)
 
+    random.seed(random_seed)  # Ensure reproducibility for sampling
     a_sample = random.sample(a_embs, k=min(num_samples, len(a_embs))) ### Eventually the samples need to be controlled better
+    random.seed(random_seed)  # Ensure reproducibility for sampling
     u_sample = random.sample(u_embs, k=min(num_samples, len(u_embs)))
 
     aa_pairs = []
@@ -234,6 +236,7 @@ def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int =
         for emb_b in a_sample:
             au_pairs.append(np.concatenate([emb_a, emb_b]))
 
+    random.seed(random_seed)  # Ensure reproducibility for sampling
     au_sample = random.sample(au_pairs, k=min(num_samples*3, len(au_pairs)))  # Sample to limit size
 
     return aa_pairs, au_sample
@@ -253,7 +256,7 @@ def prepare_data(config: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.n
     print(f"Test Embeddings: {x_test} ({len(x_test)})")
     print(f"Test Labels: {y_test} ({len(y_test)})")
 
-    aa_pairs, au_pairs = pair_embeddings(x_train_old, y_train_old, num_samples=config["num_samples"])
+    aa_pairs, au_pairs = pair_embeddings(x_train_old, y_train_old, num_samples=config["num_samples"], random_seed=config["random_seed"])
 
     # --- Combine and label training pairs ---
     x_aa = np.stack(aa_pairs)
@@ -289,7 +292,7 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     #weights[y_train == -1] = 0.9
     #weights_tensor = torch.tensor(weights, dtype=torch.float32).unsqueeze(1).to(device)
 
-    model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dim=config["hidden_dim"], dropout=config["dropout"]).to(device)
+    model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dim=config["hidden_dim"], dropout_rate=config["dropout_rate"]).to(device)
 
     criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), 5e-5)
@@ -324,13 +327,13 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
         model.eval()
 
         # After each epoch, save in-sample and out-of-sample accuracy
-        in_predictions = predict_linear_model(model, x_train)
+        in_predictions = predict_linear_model(model, x_train, a_train_embeddings=None, random_seed=config["random_seed"])
         in_acc_total.append(accuracy(y_train, in_predictions)*100)
         in_accs = class_accuracy(y_train, in_predictions)
         in_acc_aelfric.append(in_accs["Aelfric"]*100)
         in_acc_unknown.append(in_accs["Unknown"]*100)
 
-        out_predictions = predict_linear_model(model, x_test, a_train_embeddings)
+        out_predictions = predict_linear_model(model, x_test, a_train_embeddings, random_seed=config["random_seed"])
         out_acc_total.append(accuracy(y_test, out_predictions)*100)
         out_accs = class_accuracy(y_test, out_predictions)
         out_acc_aelfric.append(out_accs["Aelfric"]*100)
@@ -350,7 +353,7 @@ x_new: New embeddings to classify (np.ndarray of shape (N, 1024) or (1024,)).
 a_train_embeddings: Optional Aelfric embeddings to pair with new embeddings for prediction.
 Returns: A list of predicted classes (+1 for Aelfric, 0 for Unknown) for each new embedding.
 """
-def predict_linear_model(model: LinearBinaryModel, x_new: np.ndarray, a_train_embeddings: np.ndarray = None) -> list[int]:
+def predict_linear_model(model: LinearBinaryModel, x_new: np.ndarray, a_train_embeddings: np.ndarray = None, random_seed: int = 42) -> list[int]:
     if a_train_embeddings is None:
         # Standard case (already 2048-dim)
         if x_new.ndim == 1:
@@ -370,7 +373,7 @@ def predict_linear_model(model: LinearBinaryModel, x_new: np.ndarray, a_train_em
         # Pair each single 1024-dim test embedding with all Aelfric train embeddings
         preds = []
         for test_emb in x_new:
-            pred = predict_single_embedding(model, test_emb, a_train_embeddings)
+            pred = predict_single_embedding(model, test_emb, a_train_embeddings, random_seed=random_seed)
             preds.append(pred)
         return preds
     
@@ -383,8 +386,9 @@ test_emb: A single embedding to classify (np.ndarray of shape (1024,)).
 a_train_embeddings: A list of Aelfric training embeddings to pair with the test embedding for prediction.
 Returns: A single predicted class (+1 for Aelfric, 0 for Unknown) for the test embedding based on the average score from the model.
 """
-def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_train_embeddings: list[np.ndarray]) -> int:
+def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_train_embeddings: list[np.ndarray], random_seed: int = 42) -> int:
     # Sample fewer Aelfric embeddings for speed
+    random.seed(random_seed)  # Ensure reproducibility for sampling
     aelfrics = random.sample(a_train_embeddings.tolist(), k=min(len(a_train_embeddings), 100))
 
     pairs = [np.concatenate([a, test_emb]) for a in aelfrics]  # shape (N_a, 2048)
@@ -402,7 +406,7 @@ def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_t
     return 1 if avg_score > 0.5 else 0
 
 
-def inspect_test_scores(model, x_test, y_test, a_train_embeddings):
+def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, random_seed=42):
     model.eval()
 
     aelfric_scores = []
@@ -410,6 +414,7 @@ def inspect_test_scores(model, x_test, y_test, a_train_embeddings):
 
     for test_emb, true_label in zip(x_test, y_test):
         # Pair this test embedding with Aelfric reference embeddings
+        random.seed(random_seed)  # Ensure reproducibility for sampling
         aelfrics = random.sample(
             a_train_embeddings.tolist(),
             k=min(len(a_train_embeddings), 100)
@@ -446,15 +451,46 @@ def inspect_test_scores(model, x_test, y_test, a_train_embeddings):
     print(f"  Max:  {np.max(unknown_scores):.4f}")
     print(f"  Std:  {np.std(unknown_scores):.4f}")
 
+    print("\n===== DATA DISTRIBUTION =====")
+
+    print("Train:")
+    print("  Aelfric:", np.sum(y_train == 1))
+    print("  Unknown:", np.sum(y_train == 0))
+    print("Train embeddings shape:", x_train.shape)
+    print(x_train)
+    print(y_train)
+
+    print("Test:")
+    print("  Aelfric:", np.sum(y_test == 1))
+    print("  Unknown:", np.sum(y_test == 0))
+
+    print("Aelfric training embeddings:", len(a_train_embeddings))
+    print("Aelfric test embeddings:", np.sum(y_test == 1))
+    print("Unknown test embeddings:", np.sum(y_test == 0))
+    print("Aelfric training embeddings shape:", a_train_embeddings.shape)
+    print(a_train_embeddings)
+
+    print("\n===== PREDICTIONS =====\n")
+
+    print("Predicted Aelfric:", np.sum(np.array(y_pred) == 1))
+    print("Predicted Unknown:", np.sum(np.array(y_pred) == 0))
+
+    print("Actual Aelfric:", np.sum(np.array(y_test) == 1))
+    print("Actual Unknown:", np.sum(np.array(y_test) == 0))
+
+    """
     print("\nIndividual scores:")
 
     print("\nAelfric:")
-    for score in aelfric_scores:
-        print(f"  {score:.4f}")
+    for index, score in enumerate(aelfric_scores):
+        if index < 30:  # Print only the first few scores
+            print(f"  {score:.4f}")
 
     print("\nUnknown:")
-    for score in unknown_scores:
-        print(f"  {score:.4f}")
+    for index, score in enumerate(unknown_scores):
+        if index < 30:  # Print only the first few scores
+            print(f"  {score:.4f}")
+    """
 
 
 """
@@ -510,85 +546,98 @@ def error(accs : dict) -> dict:
     return errors
 
 """
-Save the model to a file
+Save the config and model to a file
 """
-def save_model(model, path):
-    torch.save(model.state_dict(), path)
+def save_model(config, model, path):
+    torch.save({
+        "model_state_dict": model.state_dict(),
+        "config": config
+    }, path)
     print(f"Model saved to {path}") 
+
+
+"""
+Load the config and model from a file
+"""
+def load_model(path):
+    checkpoint = torch.load(path, map_location=device)
+    config = checkpoint["config"]
+    model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dim=config["hidden_dim"], dropout_rate=config["dropout_rate"]).to(device)
+    model.load_state_dict(checkpoint["model_state_dict"])
+    print(f"Loaded model from {path}")
+    return config, model
     
 
 def main():
     logger = setup_logging()
 
-    config = {
-        "input_dim": 2048,
-        "hidden_dim": 1024,
-        "dropout": 0.5,
-        "num_epochs": 20,
-        "batch_size": 32,
-        "test_split": 0.5,
-        "random_seed": 13,
-        "num_samples": 250,
-        "aelfric_path": "data/sorted_embeddings/Aelfric",
-        "unknown_path": "data/sorted_embeddings/Unknown"
-    }
+    model_loaded = True  # Set to True if you want to load a pre-trained model instead of training a new one
 
-    # Train the model
-    x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data(config)
+    if model_loaded:
+        model_path = "models/linear_model (94_75_99) (09_22_2026 11-00).pth"  # Update with your model path
+        config, model = load_model(model_path)
 
-    print("\n===== DATA DISTRIBUTION =====")
-    print("Train:")
-    print("  Aelfric:", np.sum(y_train == 1))
-    print("  Unknown:", np.sum(y_train == 0))
-    print("Train embeddings shape:", x_train.shape)
-    print(x_train)
-    print(y_train)
+        # Prepare the training and testing data
+        x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data(config)   
 
-    print("Test:")
-    print("  Aelfric:", np.sum(y_test == 1))
-    print("  Unknown:", np.sum(y_test == 0))
+        # Find and print accuracies
+        y_pred = predict_linear_model(model, x_test, a_train_embeddings, random_seed=config["random_seed"])
 
-    print("Aelfric training embeddings:", len(a_train_embeddings))
-    print("Aelfric test embeddings:", np.sum(y_test == 1))
-    print("Unknown test embeddings:", np.sum(y_test == 0))
-    print("Aelfric training embeddings shape:", a_train_embeddings.shape)
-    print(a_train_embeddings)
+        acc_overall = accuracy(y_test, y_pred)
+        class_acc = class_accuracy(y_test, y_pred)
 
-    model, in_accs, out_accs = train_linear_model(x_train, y_train, x_test, y_test, a_train_embeddings, config)
-    logger.info("Training complete.")
+        log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, random_seed=config["random_seed"])
 
-    inspect_test_scores(model, x_test, y_test, a_train_embeddings)
+        logger.info(f"Overall test accuracy: {acc_overall*100:.2f}%")
+        logger.info(f"Aelfric accuracy: {class_acc['Aelfric']*100:.2f}%")
+        logger.info(f"Unknown accuracy: {class_acc['Unknown']*100:.2f}%")   
 
-    # Find and print accuracies
-    y_pred = predict_linear_model(model, x_test, a_train_embeddings)
 
-    print("\n===== PREDICTIONS =====")
-    print("Predicted Aelfric:", np.sum(np.array(y_pred) == 1))
-    print("Predicted Unknown:", np.sum(np.array(y_pred) == 0))
+    else:
+        config = {
+            "input_dim": 2048,
+            "hidden_dim": 512,
+            "dropout_rate": 0.5,
+            "num_epochs": 20,
+            "batch_size": 32,
+            "test_split": 0.5,
+            "random_seed": 11,
+            "num_samples": 999999,
+            "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
+            "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
+        }
 
-    print("Actual Aelfric:", np.sum(np.array(y_test) == 1))
-    print("Actual Unknown:", np.sum(np.array(y_test) == 0))
+        # Train the model
+        x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data(config)    
 
-    acc_overall = accuracy(y_test, y_pred)
-    class_acc = class_accuracy(y_test, y_pred)
+        model, in_accs, out_accs = train_linear_model(x_train, y_train, x_test, y_test, a_train_embeddings, config)
+        logger.info("Training complete.")
 
-    logger.info(f"Overall test accuracy: {acc_overall*100:.2f}%")
-    logger.info(f"Aelfric accuracy: {class_acc['Aelfric']*100:.2f}%")
-    logger.info(f"Unknown accuracy: {class_acc['Unknown']*100:.2f}%")
+        # Find and print accuracies
+        y_pred = predict_linear_model(model, x_test, a_train_embeddings, random_seed=config["random_seed"])
 
-    # Save the model with descriptive filename
-    acc_str = f"{round(acc_overall*100)}_{round(class_acc['Aelfric']*100)}_{round(class_acc['Unknown']*100)}"
-    timestamp_str = datetime.now().strftime("%m_%d_%Y %H-%M")
-    model_filename = f"models/linear_model ({acc_str}) ({timestamp_str}).pth" 
-    save_model(model, model_filename)
+        acc_overall = accuracy(y_test, y_pred)
+        class_acc = class_accuracy(y_test, y_pred)
 
-    # Visualizations
-    in_errors = error(in_accs)
-    out_errors = error(out_accs)
+        log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, random_seed=config["random_seed"])
 
-    visualization(model, in_errors, "In Sample Error", "inSample", "")
-    visualization(model, out_errors, "Out of Sample Error", "outSample", "")
-    visualization(model, {"In Sample Error": in_errors["Error"], "Out of Sample Error": out_errors["Error"]}, "Both Error", "bothSample", "")
+        logger.info(f"Overall test accuracy: {acc_overall*100:.2f}%")
+        logger.info(f"Aelfric accuracy: {class_acc['Aelfric']*100:.2f}%")
+        logger.info(f"Unknown accuracy: {class_acc['Unknown']*100:.2f}%")
+
+        # Save the model with descriptive filename
+        acc_str = f"{round(acc_overall*100)}_{round(class_acc['Aelfric']*100)}_{round(class_acc['Unknown']*100)}"
+        timestamp_str = datetime.now().strftime("%m_%d_%Y %H-%M")
+        model_filename = f"models/linear_model ({acc_str}) ({timestamp_str}).pth" 
+        save_model(config, model, model_filename)
+
+        # Visualizations
+        in_errors = error(in_accs)
+        out_errors = error(out_accs)
+
+        visualization(model, in_errors, "In Sample Error", "inSample", "")
+        visualization(model, out_errors, "Out of Sample Error", "outSample", "")
+        visualization(model, {"In Sample Error": in_errors["Error"], "Out of Sample Error": out_errors["Error"]}, "Both Error", "bothSample", "")
 
 
 if __name__ == '__main__':
