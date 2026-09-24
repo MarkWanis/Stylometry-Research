@@ -39,6 +39,12 @@ class LinearBinaryModel(nn.Module):
         x = self.relu(x)
         x = self.dropout(x)
         x = self.output(x)   # scalar score
+
+        for i in range(len(hidden_dims)):
+            x = self.hidden_layers[i](x)
+            x = self.relu(x)
+            x = self.dropout(x)
+
         return x
 
 '''
@@ -532,6 +538,7 @@ def class_accuracy(y_true: list[int], y_pred: list[int]) -> dict:
     
     return {"Aelfric": acc_aelfric, "Unknown": acc_unknown}
 
+
 """
 Calculates error based on accuracy dictionaries for in-sample and out-of-sample data.
 
@@ -544,6 +551,7 @@ def error(accs : dict) -> dict:
     errors["Aelfric Error"] = 100 - np.array(accs["Aelfric Accuracy"])
     errors["Unknown Error"] = 100 - np.array(accs["Unknown Accuracy"])
     return errors
+
 
 """
 Save the config and model to a file
@@ -566,12 +574,43 @@ def load_model(path):
     model.load_state_dict(checkpoint["model_state_dict"])
     print(f"Loaded model from {path}")
     return config, model
+
+
+def generate_heatmap(model, config):
+    x_train, x_test, y_train, y_test, _, _, _ = load_data(config)
+
+    a_train_embeddings = x_train[np.array(y_train) == 1]  # Select train embeddings where label is 1 (Aelfric)
+    a_test_embeddings = x_test[np.array(y_test) == 1]  # Select test embeddings where label is 1 (Aelfric)
+    u_train_embeddings = x_train[np.array(y_train) == 0]  # Select train embeddings where label is 0 (Unknown)
+    u_test_embeddings = x_test[np.array(y_test) == 0]  # Select test embeddings where label is 0 (Unknown)
+
+    n = len(a_train_embeddings) + len(a_test_embeddings) + len(u_train_embeddings) + len(u_test_embeddings)
+    heatmap = np.zeros((n, n))
+
+    model.eval()  # Set the model to evaluation mode
+
+    with torch.no_grad():
+        for i, emb_i in tqdm(enumerate(np.concatenate((a_train_embeddings, a_test_embeddings, u_train_embeddings, u_test_embeddings)))):
+            for j, emb_j in enumerate(np.concatenate((a_train_embeddings, a_test_embeddings, u_train_embeddings, u_test_embeddings))):
+                pair = np.concatenate([emb_i, emb_j])
+                logit = model(torch.tensor(pair, dtype=torch.float32).unsqueeze(0).to(device))
+                pred = torch.sigmoid(logit).item()
+                heatmap[i, j] = pred
+
+    plt.figure(figsize=(12, 10))
+    plt.imshow(heatmap, vmin=0, vmax=1, cmap="viridis")
+    plt.colorbar(label="Probability")
+    plt.xlabel("Embedding")
+    plt.ylabel("Embedding")
+    plt.title("Pairwise Model Probabilities")
+    plt.savefig("data/visualizations/heatmap.png", dpi=300, bbox_inches="tight")
+    plt.show()
     
 
 def main():
     logger = setup_logging()
 
-    model_loaded = True  # Set to True if you want to load a pre-trained model instead of training a new one
+    model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
 
     if model_loaded:
         model_path = "models/linear_model (94_75_99) (09_22_2026 11-00).pth"  # Update with your model path
@@ -638,6 +677,7 @@ def main():
         visualization(model, in_errors, "In Sample Error", "inSample", "")
         visualization(model, out_errors, "Out of Sample Error", "outSample", "")
         visualization(model, {"In Sample Error": in_errors["Error"], "Out of Sample Error": out_errors["Error"]}, "Both Error", "bothSample", "")
+        generate_heatmap(model, config)
 
 
 if __name__ == '__main__':
