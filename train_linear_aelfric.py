@@ -9,60 +9,58 @@ from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
 
-"""
-Things to do:
-- Improve line visualization function appearance?
-- Fully implement chunk heatmap visualization classification accuracy
-- Save the model and reload it for testing
-- Try for better accuracy with different parameters
-- Get working on the chunk-level classification (Maybe the answer is to only train on text-level embeddings, and then use the chunk-level embeddings for testing)
-- Currently, it looks like the model is either overfitting or the data is set up in a way that makes classification too easy but innacurate. Need to check the data and make sure that the embeddings are paired correctly and that the training and testing sets are not too similar.
-"""
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 # Set device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print("Using device:", device)
+logging.info(f"Using device: {device}")
+
+# Defines the configuration for the model and training parameters
+config: dict = {
+    "author": "Mark",
+    "input_dim": 2048,
+    "hidden_dim": None,
+    "optimizer": "Adam",
+    "weight_decay": None,
+    "dropout_rate": 0.5,
+    "num_epochs": 30,
+    "batch_size": 32,
+    "test_split": 0.5,
+    "aelfric_threshold": 0.1,
+    "learning_rate": 5e-5,
+    "random_seed": 11,
+    "num_samples": 1e4,
+    "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
+    "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
+}
+
+accuracy_data: dict = {}
 
 
 class LinearBinaryModel(nn.Module):
-    def __init__(self, input_dim=2048, hidden_dim=512, dropout_rate=0.2):
+    def __init__(self):
         super().__init__()
-        self.hidden = nn.Linear(input_dim, hidden_dim)  # input → hidden
-        self.relu = nn.ReLU()                            # non-linearity
-        #self.hidden2 = nn.Linear(hidden_dim, hidden_dim)  # hidden → hidden
-        self.dropout = nn.Dropout(dropout_rate)
-        self.output = nn.Linear(hidden_dim, 1)          # hidden → output
+        if config["hidden_dim"] is not None:
+            self.hidden = nn.Linear(config["input_dim"], config["hidden_dim"])  # input → hidden
+            self.relu = nn.ReLU()                            # non-linearity
+            self.dropout = nn.Dropout(config["dropout_rate"])
+            self.output = nn.Linear(config["hidden_dim"], 1)          # hidden → output
+        else:
+            self.output = nn.Linear(config["input_dim"], 1)          # input → output
 
     def forward(self, x):
-        x = self.hidden(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.output(x)   # scalar score
-
-        for i in range(len(hidden_dims)):
-            x = self.hidden_layers[i](x)
+        if config["hidden_dim"] is not None:
+            x = self.hidden(x)
             x = self.relu(x)
             x = self.dropout(x)
+        x = self.output(x)   # scalar score
 
         return x
 
-'''
-class Dataset(Dataset):
-    def __init__(self, data, labels, ids):
-        self.data = torch.tensor(data, dtype=torch.float32)
-        self.labels = torch.tensor(labels, dtype=torch.long)
-        self.ids = ids
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        x = self.data[idx]
-        y = self.labels[idx]
-        ids = self.ids[idx]
-        return x, y, ids
-'''
 
 def setup_logging():
     logging.basicConfig(level=logging.INFO)
@@ -125,6 +123,7 @@ def visualization(model: LinearBinaryModel, lines : dict, title: str, filename: 
 
     plt.savefig(f"data/visualizations/{filename}.png")  
 
+
 """
 Returns list of embeddings and ids
 
@@ -170,7 +169,7 @@ test_split: The fraction of the dataset to include in the testing set.
 random_seed: The seed for random number generation.
 Returns: A tuple containing training embeddings, testing embeddings, training labels, testing labels, training IDs, testing IDs, and Aelfric embeddings.
 """
-def load_data(config: dict) -> tuple[np.ndarray, np.ndarray, list[int], list[int], list[str], list[str], np.ndarray]:
+def load_data() -> tuple[np.ndarray, np.ndarray, list[int], list[int], list[str], list[str], np.ndarray]:
     a_embeddings = np.array([]) # np.array of Aelfric embeddings
     a_ids: list[str] = [] # List of Aelfric IDs
     
@@ -253,14 +252,14 @@ Loads the data and prepares training pairs
 
 Returns: Training and testing sets along with Aelfric embeddings for later use in predictions.
 """
-def prepare_data(config: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    x_train_old, x_test, y_train_old, y_test, _, _, a_train_embeddings = load_data(config) #"data/sorted_embeddings/Aelfric", "data/sorted_embeddings/Unknown", 0.5, 13)
+def prepare_data() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    x_train_old, x_test, y_train_old, y_test, _, _, a_train_embeddings = load_data() #"data/sorted_embeddings/Aelfric", "data/sorted_embeddings/Unknown", 0.5, 13)
     
-    print("Loaded embeddings...")
-    print(f"Train Embeddings: {x_train_old} ({len(x_train_old)})")
-    print(f"Train Labels: {y_train_old} ({len(y_train_old)})")
-    print(f"Test Embeddings: {x_test} ({len(x_test)})")
-    print(f"Test Labels: {y_test} ({len(y_test)})")
+    logging.info("Loaded embeddings...")
+    logging.debug(f"Train Embeddings: {x_train_old[:5]} ({len(x_train_old)})")
+    logging.debug(f"Train Labels: {y_train_old[:5]} ({len(y_train_old)})")
+    logging.debug(f"Test Embeddings: {x_test[:5]} ({len(x_test)})")
+    logging.debug(f"Test Labels: {y_test[:5]} ({len(y_test)})")
 
     aa_pairs, au_pairs = pair_embeddings(x_train_old, y_train_old, num_samples=config["num_samples"], random_seed=config["random_seed"])
 
@@ -289,7 +288,7 @@ num_epochs: The number of epochs to train the model.
 batch_size: The batch size for training.
 Returns: The trained model along with dictionaries containing in-sample and out-of-sample accuracies for overall, Aelfric, and Unknown classes.
 """
-def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray, a_train_embeddings: np.ndarray, config: dict) -> tuple[LinearBinaryModel, dict, dict]:
+def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray, a_train_embeddings: np.ndarray) -> tuple[LinearBinaryModel, dict, dict]:
     x_tensor = torch.tensor(x_train, dtype=torch.float32).to(device)
     y_tensor = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1).to(device)  # shape (N_total, 1)
 
@@ -298,10 +297,10 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     #weights[y_train == -1] = 0.9
     #weights_tensor = torch.tensor(weights, dtype=torch.float32).unsqueeze(1).to(device)
 
-    model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dim=config["hidden_dim"], dropout_rate=config["dropout_rate"]).to(device)
+    model = LinearBinaryModel().to(device)
 
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.Adam(model.parameters(), 5e-5)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"])
 
     # Dataset with weights
     dataset = torch.utils.data.TensorDataset(x_tensor, y_tensor)
@@ -409,10 +408,12 @@ def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_t
 
     # Aggregate:
     avg_score = np.mean(probs)  # average probability across all pairs
-    return 1 if avg_score > 0.5 else 0
+    return 1 if avg_score > config["aelfric_threshold"] else 0
 
 
 def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, random_seed=42):
+    global accuracy_data
+
     model.eval()
 
     aelfric_scores = []
@@ -443,60 +444,78 @@ def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y
         else:
             unknown_scores.append(avg_score)
 
-    print("\n===== RAW SCORE DISTRIBUTION =====")
+    logging.debug("\n===== DATA DISTRIBUTION =====")
 
-    print("\nAelfric:")
-    print(f"  Mean: {np.mean(aelfric_scores):.4f}")
-    print(f"  Min:  {np.min(aelfric_scores):.4f}")
-    print(f"  Max:  {np.max(aelfric_scores):.4f}")
-    print(f"  Std:  {np.std(aelfric_scores):.4f}")
+    logging.debug("Train:")
+    logging.debug(f"\tAelfric: {np.sum(y_train == 1)}")
+    logging.debug(f"\tUnknown: {np.sum(y_train == 0)}")
+    logging.debug(f"\tTrain embeddings shape: {x_train.shape}")
+    logging.debug(f"\tTrain embeddings:\n{x_train[:5][:5]}")
+    logging.debug(f"\tTrain labels:\n{y_train[:5]}")
 
-    print("\nUnknown:")
-    print(f"  Mean: {np.mean(unknown_scores):.4f}")
-    print(f"  Min:  {np.min(unknown_scores):.4f}")
-    print(f"  Max:  {np.max(unknown_scores):.4f}")
-    print(f"  Std:  {np.std(unknown_scores):.4f}")
+    logging.debug("Test:")
+    logging.debug(f"\tAelfric: {np.sum(y_test == 1)}")
+    logging.debug(f"\tUnknown: {np.sum(y_test == 0)}")
 
-    print("\n===== DATA DISTRIBUTION =====")
+    logging.debug(f"\tAelfric training embeddings: {len(a_train_embeddings)}")
+    logging.debug(f"\tAelfric test embeddings: {np.sum(y_test == 1)}")
+    logging.debug(f"\tUnknown test embeddings: {np.sum(y_test == 0)}")
+    logging.debug(f"\tAelfric training embeddings shape: {a_train_embeddings.shape}")
+    #logging.debug(f"\tAelfric training embeddings:\n{a_train_embeddings[:5]}")
 
-    print("Train:")
-    print("  Aelfric:", np.sum(y_train == 1))
-    print("  Unknown:", np.sum(y_train == 0))
-    print("Train embeddings shape:", x_train.shape)
-    print(x_train)
-    print(y_train)
+    logging.info("\n===== RAW SCORE DISTRIBUTION =====")
+    
+    logging.info("\nAelfric:")
+    logging.info(f"\tMean: {np.mean(aelfric_scores):.4f}")
+    logging.info(f"\tMin:  {np.min(aelfric_scores):.4f}")
+    logging.info(f"\tMax:  {np.max(aelfric_scores):.4f}")
+    logging.info(f"\tStd:  {np.std(aelfric_scores):.4f}")
 
-    print("Test:")
-    print("  Aelfric:", np.sum(y_test == 1))
-    print("  Unknown:", np.sum(y_test == 0))
+    logging.info("\nUnknown:")
+    logging.info(f"\tMean: {np.mean(unknown_scores):.4f}")
+    logging.info(f"\tMin:  {np.min(unknown_scores):.4f}")
+    logging.info(f"\tMax:  {np.max(unknown_scores):.4f}")
+    logging.info(f"\tStd:  {np.std(unknown_scores):.4f}")
 
-    print("Aelfric training embeddings:", len(a_train_embeddings))
-    print("Aelfric test embeddings:", np.sum(y_test == 1))
-    print("Unknown test embeddings:", np.sum(y_test == 0))
-    print("Aelfric training embeddings shape:", a_train_embeddings.shape)
-    print(a_train_embeddings)
+    logging.info("\n===== PREDICTIONS =====")
+    
+    #"""
+    logging.debug("Individual scores:")
 
-    print("\n===== PREDICTIONS =====\n")
-
-    print("Predicted Aelfric:", np.sum(np.array(y_pred) == 1))
-    print("Predicted Unknown:", np.sum(np.array(y_pred) == 0))
-
-    print("Actual Aelfric:", np.sum(np.array(y_test) == 1))
-    print("Actual Unknown:", np.sum(np.array(y_test) == 0))
-
-    """
-    print("\nIndividual scores:")
-
-    print("\nAelfric:")
+    logging.debug("\nAelfric:")
     for index, score in enumerate(aelfric_scores):
-        if index < 30:  # Print only the first few scores
-            print(f"  {score:.4f}")
+        if index < 5:  # Print only the first few scores
+            logging.debug(f"  {score:.4f}")
 
-    print("\nUnknown:")
+    logging.debug("\nUnknown:")
     for index, score in enumerate(unknown_scores):
-        if index < 30:  # Print only the first few scores
-            print(f"  {score:.4f}")
-    """
+        if index < 5:  # Print only the first few scores
+            logging.debug(f"  {score:.4f}")
+    #"""
+
+    logging.info("\nPrediction vs Actual:")
+
+    accuracy_data["predicted_aelfric"] = np.sum(np.array(y_pred) == 1)
+    accuracy_data["predicted_unknown"] = np.sum(np.array(y_pred) == 0)
+    logging.info(f"Predicted Aelfric: {accuracy_data['predicted_aelfric']}")
+    logging.info(f"Predicted Unknown: {accuracy_data['predicted_unknown']}")
+
+    accuracy_data["actual_aelfric"] = np.sum(np.array(y_test) == 1)
+    accuracy_data["actual_unknown"] = np.sum(np.array(y_test) == 0)
+    logging.info(f"Actual Aelfric: {accuracy_data['actual_aelfric']}")
+    logging.info(f"Actual Unknown: {accuracy_data['actual_unknown']}")
+
+    logging.info("\nConfusion Matrix:")
+
+    accuracy_data["true_aelfric"] = np.sum((np.array(y_test) == 1) & (np.array(y_pred) == 1))
+    accuracy_data["false_aelfric"] = np.sum((np.array(y_test) == 1) & (np.array(y_pred) == 0))
+    logging.info(f"True Aelfric: {accuracy_data['true_aelfric']}")
+    logging.info(f"False Aelfric: {accuracy_data['false_aelfric']}")
+
+    accuracy_data["true_unknown"] = np.sum((np.array(y_test) == 0) & (np.array(y_pred) == 0))
+    accuracy_data["false_unknown"] = np.sum((np.array(y_test) == 0) & (np.array(y_pred) == 1))
+    logging.info(f"True Unknown: {accuracy_data['true_unknown']}")
+    logging.info(f"False Unknown: {accuracy_data['false_unknown']}")
 
 
 """
@@ -553,36 +572,97 @@ def error(accs : dict) -> dict:
     return errors
 
 
+def save_to_spreadsheet():
+    headers = [
+        "date",
+        "time",
+        "author",
+        "optimizer",
+        "learning_rate",
+        "weight_decay",
+        "input_dim",
+        "hidden_dim",
+        "dropout_rate",
+        "num_epochs",
+        "batch_size",
+        "test_split",
+        "random_seed",
+        "num_samples",
+        "aelfric_threshold",
+        "predicted_aelfric",
+        "predicted_unknown",
+        "actual_aelfric",
+        "actual_unknown",
+        "true_aelfric",
+        "false_aelfric",
+        "true_unknown",
+        "false_unknown",
+        "overall_accuracy",
+        "aelfric_accuracy",
+        "unknown_accuracy"
+    ]
+    row_data = [ datetime.now().strftime("%m/%d"), datetime.now().strftime("%H:%M") ]
+
+    for header in headers:
+        if header == "date" or header == "time":
+            continue  # Already added date
+        elif header in config:
+            row_data.append( str(config[header]) if config[header] is not None else "N/A" )
+        elif header in accuracy_data:
+            row_data.append( str(accuracy_data[header]) if accuracy_data[header] is not None else "N/A" )
+        else:
+            row_data.append("N/A")
+
+    SCOPES = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    credentials = Credentials.from_service_account_file(
+        "credentials.json",
+        scopes=SCOPES
+    )
+
+    client = gspread.authorize(credentials)
+    spreadsheet = client.open("Training Model Results")
+    worksheet = spreadsheet.sheet1
+
+    row_index = len(worksheet.get_all_values()) + 1
+    #worksheet.update(f"A{row_index}", [row_data])
+    worksheet.update(values=[row_data], range_name=f"A{row_index}")
+
+
 """
 Save the config and model to a file
 """
-def save_model(config, model, path):
+def save_model(model, path):
     torch.save({
         "model_state_dict": model.state_dict(),
         "config": config
     }, path)
-    print(f"Model saved to {path}") 
+    logging.info(f"\nModel saved to {path}") 
 
 
 """
 Load the config and model from a file
 """
 def load_model(path):
+    global config
     checkpoint = torch.load(path, map_location=device)
     config = checkpoint["config"]
     model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dim=config["hidden_dim"], dropout_rate=config["dropout_rate"]).to(device)
     model.load_state_dict(checkpoint["model_state_dict"])
-    print(f"Loaded model from {path}")
-    return config, model
+    logging.info(f"Loaded model from {path}")
+    return model
 
 
-def generate_heatmap(model, config):
-    x_train, x_test, y_train, y_test, _, _, _ = load_data(config)
+def generate_heatmap(model):
+    x_train, x_test, y_train, y_test, _, _, _ = load_data()
 
     a_train_embeddings = x_train[np.array(y_train) == 1]  # Select train embeddings where label is 1 (Aelfric)
     a_test_embeddings = x_test[np.array(y_test) == 1]  # Select test embeddings where label is 1 (Aelfric)
     u_train_embeddings = x_train[np.array(y_train) == 0]  # Select train embeddings where label is 0 (Unknown)
     u_test_embeddings = x_test[np.array(y_test) == 0]  # Select test embeddings where label is 0 (Unknown)
+    all_embeddings = np.concatenate((a_train_embeddings, a_test_embeddings, u_train_embeddings, u_test_embeddings))
 
     n = len(a_train_embeddings) + len(a_test_embeddings) + len(u_train_embeddings) + len(u_test_embeddings)
     heatmap = np.zeros((n, n))
@@ -590,8 +670,8 @@ def generate_heatmap(model, config):
     model.eval()  # Set the model to evaluation mode
 
     with torch.no_grad():
-        for i, emb_i in tqdm(enumerate(np.concatenate((a_train_embeddings, a_test_embeddings, u_train_embeddings, u_test_embeddings)))):
-            for j, emb_j in enumerate(np.concatenate((a_train_embeddings, a_test_embeddings, u_train_embeddings, u_test_embeddings))):
+        for i, emb_i in tqdm(enumerate(all_embeddings)):
+            for j, emb_j in enumerate(all_embeddings):
                 pair = np.concatenate([emb_i, emb_j])
                 logit = model(torch.tensor(pair, dtype=torch.float32).unsqueeze(0).to(device))
                 pred = torch.sigmoid(logit).item()
@@ -603,21 +683,23 @@ def generate_heatmap(model, config):
     plt.xlabel("Embedding")
     plt.ylabel("Embedding")
     plt.title("Pairwise Model Probabilities")
+    logging.info("Saving heatmap...")
     plt.savefig("data/visualizations/heatmap.png", dpi=300, bbox_inches="tight")
     plt.show()
-    
+    logging.info("Heatmap saved.")
+
 
 def main():
-    logger = setup_logging()
+    global accuracy_data
 
     model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
 
     if model_loaded:
         model_path = "models/linear_model (94_75_99) (09_22_2026 11-00).pth"  # Update with your model path
-        config, model = load_model(model_path)
+        model = load_model(model_path)
 
         # Prepare the training and testing data
-        x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data(config)   
+        x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data()   
 
         # Find and print accuracies
         y_pred = predict_linear_model(model, x_test, a_train_embeddings, random_seed=config["random_seed"])
@@ -625,32 +707,18 @@ def main():
         acc_overall = accuracy(y_test, y_pred)
         class_acc = class_accuracy(y_test, y_pred)
 
-        log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, random_seed=config["random_seed"])
+        log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, acc_overall, class_acc,random_seed=config["random_seed"])
 
-        logger.info(f"Overall test accuracy: {acc_overall*100:.2f}%")
-        logger.info(f"Aelfric accuracy: {class_acc['Aelfric']*100:.2f}%")
-        logger.info(f"Unknown accuracy: {class_acc['Unknown']*100:.2f}%")   
-
+        logging.info(f"Overall test accuracy: {acc_overall*100:.2f}%")
+        logging.info(f"Aelfric accuracy: {class_acc['Aelfric']*100:.2f}%")
+        logging.info(f"Unknown accuracy: {class_acc['Unknown']*100:.2f}%")   
 
     else:
-        config = {
-            "input_dim": 2048,
-            "hidden_dim": 512,
-            "dropout_rate": 0.5,
-            "num_epochs": 20,
-            "batch_size": 32,
-            "test_split": 0.5,
-            "random_seed": 11,
-            "num_samples": 999999,
-            "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
-            "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
-        }
-
         # Train the model
-        x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data(config)    
+        x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data()    
 
-        model, in_accs, out_accs = train_linear_model(x_train, y_train, x_test, y_test, a_train_embeddings, config)
-        logger.info("Training complete.")
+        model, in_accs, out_accs = train_linear_model(x_train, y_train, x_test, y_test, a_train_embeddings)
+        logging.info("Training complete.")
 
         # Find and print accuracies
         y_pred = predict_linear_model(model, x_test, a_train_embeddings, random_seed=config["random_seed"])
@@ -660,29 +728,35 @@ def main():
 
         log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, random_seed=config["random_seed"])
 
-        logger.info(f"Overall test accuracy: {acc_overall*100:.2f}%")
-        logger.info(f"Aelfric accuracy: {class_acc['Aelfric']*100:.2f}%")
-        logger.info(f"Unknown accuracy: {class_acc['Unknown']*100:.2f}%")
+        logging.info("\n===== Test Accuracies =====\n")
+        logging.info(f"Overall test accuracy: {acc_overall*100:.2f}%")
+        logging.info(f"Aelfric accuracy: {class_acc['Aelfric']*100:.2f}%")
+        logging.info(f"Unknown accuracy: {class_acc['Unknown']*100:.2f}%")
 
         # Save the model with descriptive filename
-        acc_str = f"{round(acc_overall*100)}_{round(class_acc['Aelfric']*100)}_{round(class_acc['Unknown']*100)}"
+        accuracy_data["overall_accuracy"] = f"{round(acc_overall*100, 2)}%"
+        accuracy_data["aelfric_accuracy"] = f"{round(class_acc['Aelfric']*100, 2)}%"
+        accuracy_data["unknown_accuracy"] = f"{round(class_acc['Unknown']*100, 2)}%"
+
+        acc_str = f"{accuracy_data['overall_accuracy'][:-3]}_{accuracy_data['aelfric_accuracy'][:-3]}_{accuracy_data['unknown_accuracy'][:-3]}"
         timestamp_str = datetime.now().strftime("%m_%d_%Y %H-%M")
         model_filename = f"models/linear_model ({acc_str}) ({timestamp_str}).pth" 
-        save_model(config, model, model_filename)
+
+        save_model(model, model_filename)
+        save_to_spreadsheet()  # Save the model, config, and accuracy data to a spreadsheet
 
         # Visualizations
-        in_errors = error(in_accs)
-        out_errors = error(out_accs)
+        #in_errors = error(in_accs)
+        #out_errors = error(out_accs)
 
-        visualization(model, in_errors, "In Sample Error", "inSample", "")
-        visualization(model, out_errors, "Out of Sample Error", "outSample", "")
-        visualization(model, {"In Sample Error": in_errors["Error"], "Out of Sample Error": out_errors["Error"]}, "Both Error", "bothSample", "")
-        generate_heatmap(model, config)
+        #visualization(model, in_errors, "In Sample Error", "inSample", "")
+        #visualization(model, out_errors, "Out of Sample Error", "outSample", "")
+        #visualization(model, {"In Sample Error": in_errors["Error"], "Out of Sample Error": out_errors["Error"]}, "Both Error", "bothSample", "")
+        #generate_heatmap(model)
 
 
 if __name__ == '__main__':
-    #res = generate_umap()
-
-    #print(res)
-
-    main()
+    for i in range(6):
+        main()
+        logging.info(f"Completed iteration {i+1}/6")
+        config["aelfric_threshold"] += 0.1  # Increment the threshold for the next iteration
