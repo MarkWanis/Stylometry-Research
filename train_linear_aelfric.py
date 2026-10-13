@@ -42,18 +42,26 @@ config: dict = {
     }
 
 class LinearBinaryModel(nn.Sequential):
-    def __init__(self, input_dim=2048, hidden_dims=[512], dropout_rates=[0.2]):
+    def __init__(self):
         layers = OrderedDict()
-        prev_dim = config[input_dim]
-        for i, h in enumerate(config[hidden_dims]):
-            # first layer is "hidden", then "hidden2", "hidden3", ...
-            name = "hidden" if i == 0 else f"hidden{i+1}"
-            layers[name] = nn.Linear(prev_dim, h)
-            layers[f"relu{i+1}"] = nn.ReLU()
-            if i < len(config[dropout_rates]):
-                layers[f"dropout{i+1}"] = nn.Dropout(dropout_rates[i])
-            prev_dim = h
-        layers["output"] = nn.Linear(prev_dim, 1)
+        prev_dim = config["input_dim"]
+        if "hidden_dim" in config:
+            name = "hidden"
+            layers[name] = nn.Linear(prev_dim, config["hidden_dim"])
+            layers[f"relu1"] = nn.ReLU()
+            layers[f"dropout1"] = nn.Dropout(config["dropout_rate"])
+            layers["output"] = nn.Linear(prev_dim, 1)
+
+        else:
+            for i, h in enumerate(config["hidden_dims"]):
+                # first layer is "hidden", then "hidden2", "hidden3", ...
+                name = "hidden" if i == 0 else f"hidden{i+1}"
+                layers[name] = nn.Linear(prev_dim, h)
+                layers[f"relu{i+1}"] = nn.ReLU()
+                if i < len(config["dropout_rates"]):
+                    layers[f"dropout{i+1}"] = nn.Dropout(config["dropout_rates"][i])
+                prev_dim = h
+            layers["output"] = nn.Linear(prev_dim, 1)
         super().__init__(layers)
 
 '''
@@ -308,11 +316,7 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     #weights_tensor = torch.tensor(weights, dtype=torch.float32).unsqueeze(1).to(device)
 
     #model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dims=config["hidden_dims"], dropout_rates=config["dropout_rates"]).to(device)
-    model = LinearBinaryModel(
-        input_dim=config["input_dim"],
-        hidden_dims=config["hidden_dims"],
-        dropout_rates=config["dropout_rates"],
-    )
+    model = LinearBinaryModel()
     
 
     criterion = nn.BCEWithLogitsLoss()
@@ -584,7 +588,7 @@ def load_model(path):
     global config
     checkpoint = torch.load(path, map_location=device)
     config = checkpoint["config"]
-    model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dims=config["hidden_dims"], dropout_rates=config["dropout_rates"]).to(device)
+    model = LinearBinaryModel().to(device)
     model.load_state_dict(checkpoint["model_state_dict"])
     logging.info(f"Loaded model from {path}")
     return model
@@ -598,7 +602,7 @@ def main():
     model_loaded = True  # Set to True if you want to load a pre-trained model instead of training a new one
 
     if model_loaded:
-        model_path = "models/linear_model E(95_81_99) (10_12_2026 16-52).pth"  # Update with your model path
+        model_path = "models/linear_model (98_96_98) (09_15_2026 16-01).pth"  # Update with your model path
         model = load_model(model_path)
 
         # Prepare the training and testing data
