@@ -2,6 +2,7 @@ import numpy as np
 import json
 from pathlib import Path
 import logging
+from collections import OrderedDict
 import torch
 import torch.nn as nn
 import random
@@ -24,22 +25,36 @@ Things to do:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 
+config: dict = {
+        "input_dim": 2048,
+        "hidden_dims": [512, 128], #list of all hidden dims. To make 2 hidden layers, make there be 2 things, if 1 then 1
+        "dropout_rates": [0.5, 0.5], #same here with dropouts
+        #"dropout1_rate": 0.5,
+        #"hidden2_dim": 128,
+        #"dropout2_rate": 0.5,
+        "num_epochs": 20,
+        "batch_size": 32,
+        "test_split": 0.5,
+        "random_seed": 11,
+        "num_samples": 999999,
+        "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
+        "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
+    }
 
-class LinearBinaryModel(nn.Module):
-    def __init__(self, input_dim=2048, hidden_dim=512, dropout_rate=0.2):
-        super().__init__()
-        self.hidden = nn.Linear(input_dim, hidden_dim)  # input → hidden
-        self.relu = nn.ReLU()                            # non-linearity
-        #self.hidden2 = nn.Linear(hidden_dim, hidden_dim)  # hidden → hidden
-        self.dropout = nn.Dropout(dropout_rate)
-        self.output = nn.Linear(hidden_dim, 1)          # hidden → output
-
-    def forward(self, x):
-        x = self.hidden(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.output(x)   # scalar score
-        return x
+class LinearBinaryModel(nn.Sequential):
+    def __init__(self, input_dim=2048, hidden_dims=[512], dropout_rates=[0.2]):
+        layers = OrderedDict()
+        prev_dim = config[input_dim]
+        for i, h in enumerate(config[hidden_dims]):
+            # first layer is "hidden", then "hidden2", "hidden3", ...
+            name = "hidden" if i == 0 else f"hidden{i+1}"
+            layers[name] = nn.Linear(prev_dim, h)
+            layers[f"relu{i+1}"] = nn.ReLU()
+            if i < len(config[dropout_rates]):
+                layers[f"dropout{i+1}"] = nn.Dropout(dropout_rates[i])
+            prev_dim = h
+        layers["output"] = nn.Linear(prev_dim, 1)
+        super().__init__(layers)
 
 '''
 class Dataset(Dataset):
@@ -74,7 +89,7 @@ title: The title of the plot.
 filename: The filename for saving the plot (without extension).
 other_data: Additional text data to display below the plot (e.g., hyperparameters or notes).
 """
-def visualization(model: LinearBinaryModel, lines : dict, title: str, filename: str, other_data: str) -> None:
+def visualization(model, lines : dict, title: str, filename: str, other_data: str) -> None:
     model_string = str(model)
 
     # Count lines to estimate height needed 
@@ -292,7 +307,13 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     #weights[y_train == -1] = 0.9
     #weights_tensor = torch.tensor(weights, dtype=torch.float32).unsqueeze(1).to(device)
 
-    model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dim=config["hidden_dim"], dropout_rate=config["dropout_rate"]).to(device)
+    #model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dims=config["hidden_dims"], dropout_rates=config["dropout_rates"]).to(device)
+    model = LinearBinaryModel(
+        input_dim=config["input_dim"],
+        hidden_dims=config["hidden_dims"],
+        dropout_rates=config["dropout_rates"],
+    )
+    
 
     criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), 5e-5)
@@ -353,7 +374,7 @@ x_new: New embeddings to classify (np.ndarray of shape (N, 1024) or (1024,)).
 a_train_embeddings: Optional Aelfric embeddings to pair with new embeddings for prediction.
 Returns: A list of predicted classes (+1 for Aelfric, 0 for Unknown) for each new embedding.
 """
-def predict_linear_model(model: LinearBinaryModel, x_new: np.ndarray, a_train_embeddings: np.ndarray = None, random_seed: int = 42) -> list[int]:
+def predict_linear_model(model, x_new: np.ndarray, a_train_embeddings: np.ndarray = None, random_seed: int = 42) -> list[int]:
     if a_train_embeddings is None:
         # Standard case (already 2048-dim)
         if x_new.ndim == 1:
@@ -386,7 +407,7 @@ test_emb: A single embedding to classify (np.ndarray of shape (1024,)).
 a_train_embeddings: A list of Aelfric training embeddings to pair with the test embedding for prediction.
 Returns: A single predicted class (+1 for Aelfric, 0 for Unknown) for the test embedding based on the average score from the model.
 """
-def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_train_embeddings: list[np.ndarray], random_seed: int = 42) -> int:
+def predict_single_embedding(model, test_emb: np.ndarray, a_train_embeddings: list[np.ndarray], random_seed: int = 42) -> int:
     # Sample fewer Aelfric embeddings for speed
     random.seed(random_seed)  # Ensure reproducibility for sampling
     aelfrics = random.sample(a_train_embeddings.tolist(), k=min(len(a_train_embeddings), 100))
@@ -560,22 +581,25 @@ def save_model(config, model, path):
 Load the config and model from a file
 """
 def load_model(path):
+    global config
     checkpoint = torch.load(path, map_location=device)
     config = checkpoint["config"]
-    model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dim=config["hidden_dim"], dropout_rate=config["dropout_rate"]).to(device)
+    model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dims=config["hidden_dims"], dropout_rates=config["dropout_rates"]).to(device)
     model.load_state_dict(checkpoint["model_state_dict"])
-    print(f"Loaded model from {path}")
-    return config, model
+    logging.info(f"Loaded model from {path}")
+    return model
     
 
 def main():
+
+
     logger = setup_logging()
 
     model_loaded = True  # Set to True if you want to load a pre-trained model instead of training a new one
 
     if model_loaded:
-        model_path = "models/linear_model (94_75_99) (09_22_2026 11-00).pth"  # Update with your model path
-        config, model = load_model(model_path)
+        model_path = "models/linear_model E(95_81_99) (10_12_2026 16-52).pth"  # Update with your model path
+        model = load_model(model_path)
 
         # Prepare the training and testing data
         x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data(config)   
@@ -594,18 +618,6 @@ def main():
 
 
     else:
-        config = {
-            "input_dim": 2048,
-            "hidden_dim": 512,
-            "dropout_rate": 0.5,
-            "num_epochs": 20,
-            "batch_size": 32,
-            "test_split": 0.5,
-            "random_seed": 11,
-            "num_samples": 999999,
-            "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
-            "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
-        }
 
         # Train the model
         x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data(config)    
@@ -629,6 +641,7 @@ def main():
         acc_str = f"{round(acc_overall*100)}_{round(class_acc['Aelfric']*100)}_{round(class_acc['Unknown']*100)}"
         timestamp_str = datetime.now().strftime("%m_%d_%Y %H-%M")
         model_filename = f"models/linear_model ({acc_str}) ({timestamp_str}).pth" 
+        #I put an E to mean that it's mine, but actually we should probably have a number representing the number of hidden layers probably? Doesn't matter as much as I thought it did though because the code is flexible now.
         save_model(config, model, model_filename)
 
         # Visualizations
