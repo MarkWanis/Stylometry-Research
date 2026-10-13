@@ -571,7 +571,7 @@ def load_model(path):
 def main():
     logger = setup_logging()
 
-    model_loaded = True  # Set to True if you want to load a pre-trained model instead of training a new one
+    model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
 
     if model_loaded:
         model_path = "models/linear_model (94_75_99) (09_22_2026 11-00).pth"  # Update with your model path
@@ -595,17 +595,20 @@ def main():
 
     else:
         config = {
-            "input_dim": 2048,
-            "hidden_dim": 512,
-            "dropout_rate": 0.5,
-            "num_epochs": 20,
-            "batch_size": 32,
-            "test_split": 0.5,
-            "random_seed": 11,
-            "num_samples": 999999,
-            "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
-            "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
-        }
+       "input_dim": 2048,
+       "hidden_dim": 768,
+       "dropout_rate": 0.4,
+       "num_epochs": 50,
+       "batch_size": 32,
+       "test_split": 0.5,
+       "random_seed": 13,
+       "num_samples": 300,
+       "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
+       "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
+   }
+
+
+
 
         # Train the model
         x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data(config)    
