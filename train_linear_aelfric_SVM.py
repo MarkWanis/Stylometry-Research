@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 import random
 from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from datetime import datetime
@@ -21,7 +23,7 @@ logging.info(f"Using device: {device}")
 
 # Defines the configuration for the model and training parameters
 config: dict = {
-    "author": "Mark",
+    "author": "MW",
     "input_dim": 2048,
     "hidden_dim": None,
     "optimizer": "Adam",
@@ -34,6 +36,7 @@ config: dict = {
     "learning_rate": 5e-5,
     "random_seed": 11,
     "num_samples": 1e4,
+    "C": 0.1,
     "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
     "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
 }
@@ -288,65 +291,11 @@ num_epochs: The number of epochs to train the model.
 batch_size: The batch size for training.
 Returns: The trained model along with dictionaries containing in-sample and out-of-sample accuracies for overall, Aelfric, and Unknown classes.
 """
-def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray, a_train_embeddings: np.ndarray) -> tuple[LinearBinaryModel, dict, dict]:
-    x_tensor = torch.tensor(x_train, dtype=torch.float32).to(device)
-    y_tensor = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1).to(device)  # shape (N_total, 1)
+def train_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray, a_train_embeddings: np.ndarray) -> tuple[LinearBinaryModel, dict, dict]:
+    model = SVC(kernel='linear', C=0.1, random_state=config["random_seed"])  # Using SVM with linear kernel
+    model.fit(x_train, y_train)
 
-    # Create per-sample weights: slightly downweight Unknown (-1)
-    #weights = np.ones(len(y_train), dtype=np.float32)
-    #weights[y_train == -1] = 0.9
-    #weights_tensor = torch.tensor(weights, dtype=torch.float32).unsqueeze(1).to(device)
-
-    model = LinearBinaryModel().to(device)
-
-    criterion = nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"])
-
-    # Dataset with weights
-    dataset = torch.utils.data.TensorDataset(x_tensor, y_tensor)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=config["batch_size"], shuffle=True)
-
-    in_acc_total = []
-    in_acc_aelfric = []
-    in_acc_unknown = []
-    out_acc_total = []
-    out_acc_aelfric = []
-    out_acc_unknown = []
-
-    for epoch in tqdm(range(config["num_epochs"]), desc="Training Epochs"):
-
-        # Train for one epoch
-        model.train()
-
-        for x_batch, y_batch in loader:
-            x_batch = x_batch.to(device)
-            y_batch = y_batch.to(device)
-
-            optimizer.zero_grad()
-            logits = model(x_batch)  # predicted score
-            loss = criterion(logits, y_batch)
-            loss.backward()
-            optimizer.step()
-
-        # Turns off dropout for evaluation
-        model.eval()
-
-        # After each epoch, save in-sample and out-of-sample accuracy
-        in_predictions = predict_linear_model(model, x_train, a_train_embeddings=None, random_seed=config["random_seed"])
-        in_acc_total.append(accuracy(y_train, in_predictions)*100)
-        in_accs = class_accuracy(y_train, in_predictions)
-        in_acc_aelfric.append(in_accs["Aelfric"]*100)
-        in_acc_unknown.append(in_accs["Unknown"]*100)
-
-        out_predictions = predict_linear_model(model, x_test, a_train_embeddings, random_seed=config["random_seed"])
-        out_acc_total.append(accuracy(y_test, out_predictions)*100)
-        out_accs = class_accuracy(y_test, out_predictions)
-        out_acc_aelfric.append(out_accs["Aelfric"]*100)
-        out_acc_unknown.append(out_accs["Unknown"]*100)
-
-    return model, \
-           {"Accuracy": in_acc_total, "Aelfric Accuracy": in_acc_aelfric, "Unknown Accuracy": in_acc_unknown}, \
-           {"Accuracy": out_acc_total, "Aelfric Accuracy": out_acc_aelfric, "Unknown Accuracy": out_acc_unknown}
+    return model
 
 
 """
@@ -624,7 +573,7 @@ def save_to_spreadsheet():
 
     client = gspread.authorize(credentials)
     spreadsheet = client.open("Training Model Results")
-    worksheet = spreadsheet.sheet1
+    worksheet = spreadsheet.worksheet(config["author"])  # Use the author's name as the worksheet title
 
     row_index = len(worksheet.get_all_values()) + 1
     #worksheet.update(f"A{row_index}", [row_data])
@@ -717,42 +666,40 @@ def main():
         # Train the model
         x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data()    
 
-        model, in_accs, out_accs = train_linear_model(x_train, y_train, x_test, y_test, a_train_embeddings)
+        model = train_model(x_train, y_train, x_test, y_test, a_train_embeddings)
         logging.info("Training complete.")
 
         # Find and print accuracies
-        y_pred = predict_linear_model(model, x_test, a_train_embeddings, random_seed=config["random_seed"])
+        y_pred = model.predict(x_test)
 
-        acc_overall = accuracy(y_test, y_pred)
-        class_acc = class_accuracy(y_test, y_pred)
+        aelfric_mask = (y_test == 1)
+        unknown_mask = (y_test == 0)
 
-        log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, random_seed=config["random_seed"])
+        aelfric_accuracy = accuracy_score(
+            y_test[aelfric_mask],
+            y_pred[aelfric_mask]
+        )
+
+        unknown_accuracy = accuracy_score(
+            y_test[unknown_mask],
+            y_pred[unknown_mask]
+        )
 
         logging.info("\n===== Test Accuracies =====\n")
         logging.info(f"Overall test accuracy: {acc_overall*100:.2f}%")
-        logging.info(f"Aelfric accuracy: {class_acc['Aelfric']*100:.2f}%")
-        logging.info(f"Unknown accuracy: {class_acc['Unknown']*100:.2f}%")
+        logging.info(f"Aelfric accuracy: {aelfric_accuracy*100:.2f}%")
+        logging.info(f"Unknown accuracy: {unknown_accuracy*100:.2f}%")
 
         # Save the model with descriptive filename
         accuracy_data["overall_accuracy"] = f"{round(acc_overall*100, 2)}%"
-        accuracy_data["aelfric_accuracy"] = f"{round(class_acc['Aelfric']*100, 2)}%"
-        accuracy_data["unknown_accuracy"] = f"{round(class_acc['Unknown']*100, 2)}%"
+        accuracy_data["aelfric_accuracy"] = f"{round(aelfric_accuracy*100, 2)}%"
+        accuracy_data["unknown_accuracy"] = f"{round(unknown_accuracy*100, 2)}%"
 
         acc_str = f"{accuracy_data['overall_accuracy'][:-3]}_{accuracy_data['aelfric_accuracy'][:-3]}_{accuracy_data['unknown_accuracy'][:-3]}"
         timestamp_str = datetime.now().strftime("%m_%d_%Y %H-%M")
         model_filename = f"models/linear_model ({acc_str}) ({timestamp_str}).pth" 
 
-        save_model(model, model_filename)
-        save_to_spreadsheet()  # Save the model, config, and accuracy data to a spreadsheet
-
-        # Visualizations
-        #in_errors = error(in_accs)
-        #out_errors = error(out_accs)
-
-        #visualization(model, in_errors, "In Sample Error", "inSample", "")
-        #visualization(model, out_errors, "Out of Sample Error", "outSample", "")
-        #visualization(model, {"In Sample Error": in_errors["Error"], "Out of Sample Error": out_errors["Error"]}, "Both Error", "bothSample", "")
-        #generate_heatmap(model)
+        #save_model(model, model_filename)
 
 
 if __name__ == '__main__':
