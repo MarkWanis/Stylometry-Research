@@ -26,7 +26,7 @@ print("Using device:", device)
 
 
 class LinearBinaryModel(nn.Module):
-    def __init__(self, input_dim=2048, hidden_dim=512, dropout_rate=0.2):
+    def __init__(self, input_dim=1024, hidden_dim=512, dropout_rate=0.2):
         super().__init__()
         self.hidden = nn.Linear(input_dim, hidden_dim)  # input → hidden
         self.relu = nn.ReLU()                            # non-linearity
@@ -182,7 +182,7 @@ def load_data(config: dict) -> tuple[np.ndarray, np.ndarray, list[int], list[int
     u_embeddings, u_ids = load_embeddings(config["unknown_path"], config["num_samples"])
 
     # Create the list of all the embeddings, ids, and labels
-    embeddings = np.concatenate((a_embeddings, u_embeddings), axis=0) 
+    embeddings = np.concatenate((a_embeddings, u_embeddings), axis=0)
     y = [1] * len(a_ids) + [0] * len(u_ids)
     ids = a_ids + u_ids
 
@@ -297,7 +297,7 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     #This is added to penalize mistakes on Aelfric labels by weighing them heavier
     pos_weight = torch.tensor([150/75]).to(device)  # Unknown/Aelfric ratio
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=4e-4, weight_decay=0.35)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.35)
 
     # Dataset with weights
     dataset = torch.utils.data.TensorDataset(x_tensor, y_tensor)
@@ -391,7 +391,7 @@ def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_t
     random.seed(random_seed)  # Ensure reproducibility for sampling
     aelfrics = random.sample(a_train_embeddings.tolist(), k=min(len(a_train_embeddings), 100))
 
-    pairs = [np.concatenate([a, test_emb]) for a in aelfrics]  # shape (N_a, 2048)
+    pairs = [np.concatenate([a, test_emb]) for a in aelfrics]
     x_tensor = torch.tensor(np.stack(pairs), dtype=torch.float32).to(device)
 
     # Switches to eval
@@ -599,10 +599,10 @@ def main():
            "dropout_rate": 0.3,
            "num_epochs": 75,
            "batch_size": 32,
-           "test_split": 0.5,
+           "test_split": 0.3,
            "random_seed": 11,
            "num_samples": 1000,
-           "threshold": 0.4,
+           "threshold": 0.75,
            "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
            "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
        }
