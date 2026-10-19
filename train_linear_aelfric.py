@@ -19,21 +19,24 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logging.info(f"Using device: {device}")
 
+model_name : str = None
+model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
+
 # Defines the configuration for the model and training parameters
 config: dict = {
     "author": "Mark",
     "input_dim": 2048,
     "hidden_dim": None,
     "optimizer": "Adam",
-    "weight_decay": None,
+    "weight_decay": 1e-4,
     "dropout_rate": 0.5,
-    "num_epochs": 30,
+    "num_epochs": 70,
     "batch_size": 32,
-    "test_split": 0.5,
+    "test_split": 0.4,
     "aelfric_threshold": 0.1,
     "learning_rate": 5e-5,
     "random_seed": 11,
-    "num_samples": 1e4,
+    "num_samples": int(1e4),
     "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
     "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
 }
@@ -300,7 +303,7 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     model = LinearBinaryModel().to(device)
 
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"])
+    optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"])
 
     # Dataset with weights
     dataset = torch.utils.data.TensorDataset(x_tensor, y_tensor)
@@ -505,7 +508,7 @@ def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y
     logging.info(f"Actual Aelfric: {accuracy_data['actual_aelfric']}")
     logging.info(f"Actual Unknown: {accuracy_data['actual_unknown']}")
 
-    logging.info("\nConfusion Matrix:")
+    logging.info("\nConfusion Matrix:") 
 
     accuracy_data["true_aelfric"] = np.sum((np.array(y_test) == 1) & (np.array(y_pred) == 1))
     accuracy_data["false_aelfric"] = np.sum((np.array(y_test) == 1) & (np.array(y_pred) == 0))
@@ -647,11 +650,17 @@ Load the config and model from a file
 """
 def load_model(path):
     global config
+
     checkpoint = torch.load(path, map_location=device)
-    config = checkpoint["config"]
-    model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dim=config["hidden_dim"], dropout_rate=config["dropout_rate"]).to(device)
+
+    current_threshold = config["aelfric_threshold"]
+    config = checkpoint["config"].copy()
+    config["aelfric_threshold"] = current_threshold
+
+    model = LinearBinaryModel().to(device)
     model.load_state_dict(checkpoint["model_state_dict"])
     logging.info(f"Loaded model from {path}")
+
     return model
 
 
@@ -690,16 +699,14 @@ def generate_heatmap(model):
 
 
 def main():
-    global accuracy_data
-
-    model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
+    global accuracy_data, model_name, model_loaded
 
     if model_loaded:
-        model_path = "models/linear_model (94_75_99) (09_22_2026 11-00).pth"  # Update with your model path
-        model = load_model(model_path)
+        #model_path = "models/linear_model (94_75_99) (09_22_2026 11-00).pth"  # Update with your model path
+        model = load_model(model_name)
 
         # Prepare the training and testing data
-        x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data()   
+        x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data()
 
         # Find and print accuracies
         y_pred = predict_linear_model(model, x_test, a_train_embeddings, random_seed=config["random_seed"])
@@ -707,11 +714,19 @@ def main():
         acc_overall = accuracy(y_test, y_pred)
         class_acc = class_accuracy(y_test, y_pred)
 
-        log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, acc_overall, class_acc,random_seed=config["random_seed"])
+        #log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, acc_overall, class_acc,random_seed=config["random_seed"])
 
+        logging.info("\n===== Test Accuracies =====\n")
         logging.info(f"Overall test accuracy: {acc_overall*100:.2f}%")
         logging.info(f"Aelfric accuracy: {class_acc['Aelfric']*100:.2f}%")
-        logging.info(f"Unknown accuracy: {class_acc['Unknown']*100:.2f}%")   
+        logging.info(f"Unknown accuracy: {class_acc['Unknown']*100:.2f}%")
+
+        # Save the model with descriptive filename
+        accuracy_data["overall_accuracy"] = f"{round(acc_overall*100, 2)}%"
+        accuracy_data["aelfric_accuracy"] = f"{round(class_acc['Aelfric']*100, 2)}%"
+        accuracy_data["unknown_accuracy"] = f"{round(class_acc['Unknown']*100, 2)}%"
+
+        save_to_spreadsheet()
 
     else:
         # Train the model
@@ -740,10 +755,12 @@ def main():
 
         acc_str = f"{accuracy_data['overall_accuracy'][:-3]}_{accuracy_data['aelfric_accuracy'][:-3]}_{accuracy_data['unknown_accuracy'][:-3]}"
         timestamp_str = datetime.now().strftime("%m_%d_%Y %H-%M")
-        model_filename = f"models/linear_model ({acc_str}) ({timestamp_str}).pth" 
+        model_name = f"models/linear_model ({acc_str}) ({timestamp_str}).pth" 
 
-        save_model(model, model_filename)
+        save_model(model, model_name)
         save_to_spreadsheet()  # Save the model, config, and accuracy data to a spreadsheet
+
+        model_loaded = True
 
         # Visualizations
         #in_errors = error(in_accs)
@@ -756,7 +773,12 @@ def main():
 
 
 if __name__ == '__main__':
-    for i in range(6):
-        main()
-        logging.info(f"Completed iteration {i+1}/6")
-        config["aelfric_threshold"] += 0.1  # Increment the threshold for the next iteration
+    for i in range(3):
+        for j in range(6):
+            main()
+            logging.info(f"Completed iteration {j+1}/6")
+            config["aelfric_threshold"] += 0.1  # Increment the threshold for the next iteration
+
+        config["aelfric_threshold"] = 0.3
+        config["test_split"] += 0.1
+        model_loaded = False  # Reset model_loaded for each iteration

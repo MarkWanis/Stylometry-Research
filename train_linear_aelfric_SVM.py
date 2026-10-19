@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import random
 from sklearn.model_selection import train_test_split
-from sklearn.svm import SVC
+from sklearn.svm import SVC, LinearSVC
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -29,13 +29,13 @@ config: dict = {
     "optimizer": "Adam",
     "weight_decay": None,
     "dropout_rate": 0.5,
-    "num_epochs": 30,
+    "num_epochs": 1,
     "batch_size": 32,
     "test_split": 0.5,
-    "aelfric_threshold": 0.1,
+    "aelfric_threshold": 0.0,
     "learning_rate": 5e-5,
     "random_seed": 11,
-    "num_samples": 1e4,
+    "num_samples": int(1e4),
     "C": 0.1,
     "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
     "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
@@ -66,7 +66,7 @@ class LinearBinaryModel(nn.Module):
 
 
 def setup_logging():
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     return logging.getLogger(__name__)
     
 
@@ -230,17 +230,17 @@ def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int =
     au_pairs = []
 
     # Aelfric–Aelfric pairs (1)
-    for emb_a in a_sample:
+    for emb_a in tqdm(a_sample, desc="Generating Aelfric-Aelfric pairs"):
         for emb_b in a_sample:
             aa_pairs.append(np.concatenate([emb_a, emb_b]))
 
     # Aelfric–Unknown pairs (0)
-    for emb_a in a_sample:
+    for emb_a in tqdm(a_sample, desc="Generating Aelfric-Unknown pairs"):
         for emb_b in u_sample:
             au_pairs.append(np.concatenate([emb_a, emb_b]))
 
     # Unknown-Aelfric pairs (0)
-    for emb_a in u_sample:
+    for emb_a in tqdm(u_sample, desc="Generating Unknown-Aelfric pairs"):
         for emb_b in a_sample:
             au_pairs.append(np.concatenate([emb_a, emb_b]))
 
@@ -292,7 +292,7 @@ batch_size: The batch size for training.
 Returns: The trained model along with dictionaries containing in-sample and out-of-sample accuracies for overall, Aelfric, and Unknown classes.
 """
 def train_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray, a_train_embeddings: np.ndarray) -> tuple[LinearBinaryModel, dict, dict]:
-    model = SVC(kernel='linear', C=0.1, random_state=config["random_seed"])  # Using SVM with linear kernel
+    model = LinearSVC(C=0.1, random_state=config["random_seed"], dual="auto")  # Using SVM with linear kernel
     model.fit(x_train, y_train)
 
     return model
@@ -307,29 +307,13 @@ x_new: New embeddings to classify (np.ndarray of shape (N, 1024) or (1024,)).
 a_train_embeddings: Optional Aelfric embeddings to pair with new embeddings for prediction.
 Returns: A list of predicted classes (+1 for Aelfric, 0 for Unknown) for each new embedding.
 """
-def predict_linear_model(model: LinearBinaryModel, x_new: np.ndarray, a_train_embeddings: np.ndarray = None, random_seed: int = 42) -> list[int]:
-    if a_train_embeddings is None:
-        # Standard case (already 2048-dim)
-        if x_new.ndim == 1:
-            x_new = x_new[np.newaxis, :]
-
-        # Double checks that we're not training
-        model.eval()
-
-        with torch.no_grad():
-            x_tensor = torch.tensor(x_new, dtype=torch.float32).to(device)
-            logits = model(x_tensor).squeeze()
-            probs = torch.sigmoid(logits).cpu().numpy()
-
-        return [1 if prob > 0.5 else 0 for prob in probs]
-    
-    else:
-        # Pair each single 1024-dim test embedding with all Aelfric train embeddings
-        preds = []
-        for test_emb in x_new:
-            pred = predict_single_embedding(model, test_emb, a_train_embeddings, random_seed=random_seed)
-            preds.append(pred)
-        return preds
+def predict_model(model, x_new: np.ndarray, a_train_embeddings: np.ndarray = None, random_seed: int = 42) -> list[int]:
+    # Pair each single 1024-dim test embedding with all Aelfric train embeddings
+    preds = []
+    for test_emb in tqdm(x_new, desc="Predicting"):
+        pred = predict_single_embedding(model, test_emb, a_train_embeddings, random_seed=random_seed)
+        preds.append(pred)
+    return preds
     
 """
 Predicts the class (+1 for Aelfric, 0 for Unknown) for a single embedding by pairing it with a sample of Aelfric embeddings and averaging the model's scores.
@@ -340,23 +324,18 @@ test_emb: A single embedding to classify (np.ndarray of shape (1024,)).
 a_train_embeddings: A list of Aelfric training embeddings to pair with the test embedding for prediction.
 Returns: A single predicted class (+1 for Aelfric, 0 for Unknown) for the test embedding based on the average score from the model.
 """
-def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_train_embeddings: list[np.ndarray], random_seed: int = 42) -> int:
+def predict_single_embedding(model, test_emb: np.ndarray, a_train_embeddings: list[np.ndarray], random_seed: int = 42) -> int:
     # Sample fewer Aelfric embeddings for speed
     random.seed(random_seed)  # Ensure reproducibility for sampling
     aelfrics = random.sample(a_train_embeddings.tolist(), k=min(len(a_train_embeddings), 100))
 
     pairs = [np.concatenate([a, test_emb]) for a in aelfrics]  # shape (N_a, 2048)
-    x_tensor = torch.tensor(np.stack(pairs), dtype=torch.float32).to(device)
 
-    # Switches to eval
-    model.eval()
-
-    with torch.no_grad():
-        logits = model(x_tensor).squeeze()  # one score per pair
-        probs = torch.sigmoid(logits).cpu().numpy()  # convert to probabilities
+    probs = model.predict(pairs)
 
     # Aggregate:
     avg_score = np.mean(probs)  # average probability across all pairs
+    print(f"Avg score for test embedding: {avg_score:.4f}, threshold: {config['aelfric_threshold']:.4f}")
     return 1 if avg_score > config["aelfric_threshold"] else 0
 
 
@@ -670,10 +649,12 @@ def main():
         logging.info("Training complete.")
 
         # Find and print accuracies
-        y_pred = model.predict(x_test)
+        y_pred = np.array(predict_model(model, x_test, a_train_embeddings, random_seed=config["random_seed"]))
 
         aelfric_mask = (y_test == 1)
         unknown_mask = (y_test == 0)
+
+        acc_overall = accuracy_score(y_test, y_pred)
 
         aelfric_accuracy = accuracy_score(
             y_test[aelfric_mask],
@@ -703,7 +684,7 @@ def main():
 
 
 if __name__ == '__main__':
-    for i in range(6):
+    for i in range(1):
         main()
         logging.info(f"Completed iteration {i+1}/6")
         config["aelfric_threshold"] += 0.1  # Increment the threshold for the next iteration
