@@ -24,22 +24,25 @@ Things to do:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 
-
 class LinearBinaryModel(nn.Module):
     def __init__(self, input_dim=1024, hidden_dim=512, dropout_rate=0.2):
         super().__init__()
-        self.hidden = nn.Linear(input_dim, hidden_dim)  # input → hidden
-        self.relu = nn.ReLU()                            # non-linearity
-        #self.hidden2 = nn.Linear(hidden_dim, hidden_dim)  # hidden → hidden
-        self.dropout = nn.Dropout(dropout_rate)
-        self.output = nn.Linear(hidden_dim, 1)          # hidden → output
+        self.use_hidden = bool(hidden_dim)  # False for 0 or None
+
+        if self.use_hidden:
+            self.hidden = nn.Linear(input_dim, hidden_dim)  # input → hidden
+            self.relu = nn.ReLU()
+            self.dropout = nn.Dropout(dropout_rate)
+            self.output = nn.Linear(hidden_dim, 1)          # hidden → output
+        else:
+            self.output = nn.Linear(input_dim, 1)           # input → output (logistic regression)
 
     def forward(self, x):
-        x = self.hidden(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.output(x)   # scalar score
-        return x
+        if self.use_hidden:
+            x = self.hidden(x)
+            x = self.relu(x)
+            x = self.dropout(x)
+        return self.output(x)
 
 '''
 class Dataset(Dataset):
@@ -297,7 +300,7 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     #This is added to penalize mistakes on Aelfric labels by weighing them heavier
     pos_weight = torch.tensor([150/75]).to(device)  # Unknown/Aelfric ratio
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=4e-4, weight_decay=0.35)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.35)
 
     # Dataset with weights
     dataset = torch.utils.data.TensorDataset(x_tensor, y_tensor)
@@ -594,15 +597,15 @@ def main():
 
     else:
         config = {
-           "input_dim": 2048,
-           "hidden_dim": 512,
+           "input_dim": 1024,
+           "hidden_dim": 500,
            "dropout_rate": 0.3,
            "num_epochs": 75,
            "batch_size": 32,
-           "test_split": 0.7,
+           "test_split": 0.3,
            "random_seed": 11,
            "num_samples": 1000,
-           "threshold": 0.4,
+           "threshold": 0.7,
            "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
            "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
        }
