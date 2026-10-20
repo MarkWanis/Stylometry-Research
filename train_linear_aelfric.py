@@ -28,12 +28,12 @@ config: dict = {
     "input_dim": 2048,
     "hidden_dim": None,
     "optimizer": "Adam",
-    "weight_decay": 1e-4,
-    "dropout_rate": 0.5,
-    "num_epochs": 70,
+    "weight_decay": None,
+    "dropout_rate": 0.4,
+    "num_epochs": 50,
     "batch_size": 32,
     "test_split": 0.4,
-    "aelfric_threshold": 0.1,
+    "aelfric_threshold": 0.3,
     "learning_rate": 5e-5,
     "random_seed": 11,
     "num_samples": int(1e4),
@@ -303,7 +303,11 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     model = LinearBinaryModel().to(device)
 
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"])
+
+    if config["weight_decay"]:
+        optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"])
+    else:
+        optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"])
 
     # Dataset with weights
     dataset = torch.utils.data.TensorDataset(x_tensor, y_tensor)
@@ -773,10 +777,10 @@ def main():
 
 
 if __name__ == '__main__':
-    for i in range(3):
-        for j in range(6):
+    for i in range(2):
+        for j in range(3):
             main()
-            logging.info(f"Completed iteration {j+1}/6")
+            logging.info(f"Completed iteration {j+1}/3")
             config["aelfric_threshold"] += 0.1  # Increment the threshold for the next iteration
 
         config["aelfric_threshold"] = 0.3

@@ -142,6 +142,7 @@ def prepare_data():
 
     return X_train, X_test, y_train, y_test
 
+
 def prepare_train_data():
     #'''
     # Get aelfric and unknown embeddings
