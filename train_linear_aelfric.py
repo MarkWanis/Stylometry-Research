@@ -26,31 +26,35 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 
 config: dict = {
-        "input_dim": 2048,
-        "hidden_dims": [512, 128], #list of all hidden dims. To make 2 hidden layers, make there be 2 things, if 1 then 1
-        "dropout_rates": [0.5, 0.5], #same here with dropouts
-        #"dropout1_rate": 0.5,
-        #"hidden2_dim": 128,
-        #"dropout2_rate": 0.5,
-        "num_epochs": 20,
-        "batch_size": 32,
-        "test_split": 0.5,
-        "random_seed": 11,
-        "num_samples": 999999,
-        "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
-        "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
-    }
+    "author": "Emma",
+    "input_dim": 2048,
+    "hidden_dims": [10, 5],
+    "optimizer": "Adam",
+    "weight_decay": None,
+    "dropout_rates": [0.4],
+    "num_epochs": 30,
+    "batch_size": 32,
+    "test_split": 0.5,
+    "aelfric_threshold": 0.2,
+    "learning_rate": 5e-5,
+    "random_seed": 11,
+    "num_samples": int(1e4),
+    "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
+    "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
+}
 
 class LinearBinaryModel(nn.Sequential):
     def __init__(self):
         layers = OrderedDict()
         prev_dim = config["input_dim"]
+        
         if "hidden_dim" in config:
-            name = "hidden"
-            layers[name] = nn.Linear(prev_dim, config["hidden_dim"])
-            layers[f"relu1"] = nn.ReLU()
-            layers[f"dropout1"] = nn.Dropout(config["dropout_rate"])
-            layers["output"] = nn.Linear(prev_dim, 1)
+            if config["hidden_dim"] is not None:
+                name = "hidden"
+                layers[name] = nn.Linear(prev_dim, config["hidden_dim"])
+                layers[f"relu1"] = nn.ReLU()
+                layers[f"dropout1"] = nn.Dropout(config["dropout_rate"])
+                layers["output"] = nn.Linear(prev_dim, 1)
 
         else:
             for i, h in enumerate(config["hidden_dims"]):
@@ -599,10 +603,11 @@ def main():
 
     logger = setup_logging()
 
-    model_loaded = True  # Set to True if you want to load a pre-trained model instead of training a new one
+    model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
 
     if model_loaded:
-        model_path = "models/linear_model (98_96_98) (09_15_2026 16-01).pth"  # Update with your model path
+        model_path = "models/linear_model (94_76_99) (10_18_2026 22-32).pth"  # Update with your model path
+        #model_path = "models/linear_model E(95_81_99) (10_12_2026 16-52).pth"
         model = load_model(model_path)
 
         # Prepare the training and testing data
