@@ -19,21 +19,21 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logging.info(f"Using device: {device}")
 
-model_name : str = None
-model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
+model_name : str = "models/linear_model (97_98_97) (10_17_2026 21-10).pth"
+model_loaded = True  # Set to True if you want to load a pre-trained model instead of training a new one
 
 # Defines the configuration for the model and training parameters
 config: dict = {
     "author": "Mark",
     "input_dim": 2048,
     "hidden_dim": None,
-    "optimizer": "Adam",
+    "optimizer": "AdamW",
     "weight_decay": None,
     "dropout_rate": 0.4,
     "num_epochs": 50,
     "batch_size": 32,
     "test_split": 0.4,
-    "aelfric_threshold": 0.3,
+    "threshold": 0.3,
     "learning_rate": 5e-5,
     "random_seed": 11,
     "num_samples": int(1e4),
@@ -304,9 +304,17 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
 
     criterion = nn.BCEWithLogitsLoss()
 
-    if config["weight_decay"]:
+    # Set up the optimizer based on the configuration
+    if config["weight_decay"] and config["optimizer"] == "AdamW":
+        optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"])
+    elif config["weight_decay"] and config["optimizer"] == "Adam":
         optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"])
+    elif config["weight_decay"] is None and config["optimizer"] == "AdamW":
+        optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"])
+    elif config["weight_decay"] is None and config["optimizer"] == "Adam":
+        optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"])
     else:
+        logging.warning("Optimizer or weight_decay not specified correctly. Using default Adam optimizer without weight decay.")
         optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"])
 
     # Dataset with weights
@@ -415,7 +423,7 @@ def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_t
 
     # Aggregate:
     avg_score = np.mean(probs)  # average probability across all pairs
-    return 1 if avg_score > config["aelfric_threshold"] else 0
+    return 1 if avg_score > config["threshold"] else 0
 
 
 def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, random_seed=42):
@@ -595,7 +603,7 @@ def save_to_spreadsheet():
         "test_split",
         "random_seed",
         "num_samples",
-        "aelfric_threshold",
+        "threshold",
         "predicted_aelfric",
         "predicted_unknown",
         "actual_aelfric",
@@ -657,9 +665,9 @@ def load_model(path):
 
     checkpoint = torch.load(path, map_location=device)
 
-    current_threshold = config["aelfric_threshold"]
+    #current_threshold = config["threshold"]
     config = checkpoint["config"].copy()
-    config["aelfric_threshold"] = current_threshold
+    #config["threshold"] = current_threshold
 
     model = LinearBinaryModel().to(device)
     model.load_state_dict(checkpoint["model_state_dict"])
@@ -706,7 +714,7 @@ def main():
     global accuracy_data, model_name, model_loaded
 
     if model_loaded:
-        #model_path = "models/linear_model (94_75_99) (09_22_2026 11-00).pth"  # Update with your model path
+        model_path = "models/linear_model (94_75_99) (09_22_2026 11-00).pth"  # Update with your model path
         model = load_model(model_name)
 
         # Prepare the training and testing data
@@ -777,12 +785,12 @@ def main():
 
 
 if __name__ == '__main__':
-    for i in range(2):
-        for j in range(3):
+    for i in range(1):
+        for j in range(1):
             main()
             logging.info(f"Completed iteration {j+1}/3")
-            config["aelfric_threshold"] += 0.1  # Increment the threshold for the next iteration
+            config["threshold"] += 0.1  # Increment the threshold for the next iteration
 
-        config["aelfric_threshold"] = 0.3
+        config["threshold"] = 0.3
         config["test_split"] += 0.1
         model_loaded = False  # Reset model_loaded for each iteration
