@@ -605,7 +605,7 @@ def main():
            "test_split": 0.3,
            "random_seed": 11,
            "num_samples": 1000,
-           "threshold": 0.7,
+           "threshold": 0.6,
            "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
            "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
        }
