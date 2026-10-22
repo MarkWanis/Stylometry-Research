@@ -20,21 +20,21 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logging.info(f"Using device: {device}")
 
 model_name : str = "models/linear_model (97_98_97) (10_17_2026 21-10).pth"
-model_loaded = True  # Set to True if you want to load a pre-trained model instead of training a new one
+model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
 
 # Defines the configuration for the model and training parameters
 config: dict = {
     "author": "Mark",
     "input_dim": 2048,
-    "hidden_dim": None,
+    "hidden_dim": 500,
     "optimizer": "AdamW",
-    "weight_decay": None,
-    "dropout_rate": 0.4,
-    "num_epochs": 50,
+    "weight_decay": 0.35,
+    "dropout_rate": 0.3,
+    "num_epochs": 75,
     "batch_size": 32,
-    "test_split": 0.4,
-    "threshold": 0.3,
-    "learning_rate": 5e-5,
+    "test_split": 0.3,
+    "threshold": 0.2,
+    "learning_rate": 4e-4,
     "random_seed": 11,
     "num_samples": int(1e4),
     "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
@@ -665,9 +665,9 @@ def load_model(path):
 
     checkpoint = torch.load(path, map_location=device)
 
-    #current_threshold = config["threshold"]
+    current_threshold = config["threshold"]
     config = checkpoint["config"].copy()
-    #config["threshold"] = current_threshold
+    config["threshold"] = current_threshold
 
     model = LinearBinaryModel().to(device)
     model.load_state_dict(checkpoint["model_state_dict"])
@@ -786,7 +786,7 @@ def main():
 
 if __name__ == '__main__':
     for i in range(1):
-        for j in range(1):
+        for j in range(3):
             main()
             logging.info(f"Completed iteration {j+1}/3")
             config["threshold"] += 0.1  # Increment the threshold for the next iteration
