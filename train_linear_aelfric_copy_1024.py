@@ -298,7 +298,7 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dim=config["hidden_dim"], dropout_rate=config["dropout_rate"]).to(device)
 
     #This is added to penalize mistakes on Aelfric labels by weighing them heavier
-    pos_weight = torch.tensor([150/75]).to(device)  # Unknown/Aelfric ratio
+    pos_weight = torch.tensor([np.sum(y_train == 0) / np.sum(y_train == 1)], dtype=torch.float32).to(device)  # Unknown/Aelfric ratio
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.35)
 
@@ -599,7 +599,7 @@ def main():
         config = {
            "input_dim": 1024,
            "hidden_dim": 500,
-           "dropout_rate": 0.3,
+           "dropout_rate": 0.5,
            "num_epochs": 75,
            "batch_size": 32,
            "test_split": 0.3,
