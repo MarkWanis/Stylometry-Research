@@ -205,12 +205,12 @@ def load_data(config: dict) -> tuple[np.ndarray, np.ndarray, list[int], list[int
     ids = a_ids + u_ids
 
     # Randomly split the full works while keeping embeddings, IDs, and labels aligned
-    x_train, x_test, y_train, y_test, id_train, id_test = train_test_split(embeddings, y, ids, test_size=config["test_split"], random_state=config["random_seed"], stratify=y)
+    x_train, x_test, y_train, y_test, id_train, id_test = train_test_split(embeddings, y, ids, test_size=config["test_split"], stratify=y)
 
     # Save the Aelfric training embeddings for later use in predictions
-    a_train_embeddings = x_train[np.array(y_train) == 1]  # Select embeddings where label is 1 (Aelfric)
+  
 
-    return x_train, x_test, y_train, y_test, id_train, id_test, a_train_embeddings
+    return x_train, x_test, y_train, y_test, id_train, id_test
 
 
 """
@@ -221,7 +221,7 @@ labels: List of corresponding labels (1 for Aelfric, 0 for Unknown).
 num_samples: The number of samples to draw from each class.
 Returns: Two lists of concatenated embeddings.
 """
-def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int = 250, random_seed: int = 42) -> tuple[list[np.ndarray], list[np.ndarray]]:
+def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int = 250) -> tuple[list[np.ndarray], list[np.ndarray]]:
     a_embs = []
     u_embs = []
 
@@ -231,9 +231,9 @@ def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int =
         else:
             u_embs.append(emb)
 
-    random.seed(random_seed)  # Ensure reproducibility for sampling
+    random.seed(config["random_seed"])  # Ensure reproducibility for sampling
     a_sample = random.sample(a_embs, k=min(num_samples, len(a_embs))) ### Eventually the samples need to be controlled better
-    random.seed(random_seed)  # Ensure reproducibility for sampling
+    random.seed(config["random_seed"])  # Ensure reproducibility for sampling
     u_sample = random.sample(u_embs, k=min(num_samples, len(u_embs)))
 
     aa_pairs = []
@@ -254,7 +254,7 @@ def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int =
         for emb_b in a_sample:
             au_pairs.append(np.concatenate([emb_a, emb_b]))
 
-    random.seed(random_seed)  # Ensure reproducibility for sampling
+    random.seed(config["random_seed"])  # Ensure reproducibility for sampling
     au_sample = random.sample(au_pairs, k=min(num_samples*3, len(au_pairs)))  # Sample to limit size
 
     return aa_pairs, au_sample
@@ -391,9 +391,9 @@ test_emb: A single embedding to classify (np.ndarray of shape (1024,)).
 a_train_embeddings: A list of Aelfric training embeddings to pair with the test embedding for prediction.
 Returns: A single predicted class (+1 for Aelfric, 0 for Unknown) for the test embedding based on the average score from the model.
 """
-def predict_single_embedding(model, test_emb: np.ndarray, a_train_embeddings: list[np.ndarray], random_seed: int = 42) -> int:
+def predict_single_embedding(model, test_emb: np.ndarray, a_train_embeddings: list[np.ndarray]) -> int:
     # Sample fewer Aelfric embeddings for speed
-    random.seed(random_seed)  # Ensure reproducibility for sampling
+    random.seed(config["random_seed"])  # Ensure reproducibility for sampling
     aelfrics = random.sample(a_train_embeddings.tolist(), k=min(len(a_train_embeddings), 100))
 
     pairs = [np.concatenate([a, test_emb]) for a in aelfrics]  # shape (N_a, 2048)
@@ -411,7 +411,7 @@ def predict_single_embedding(model, test_emb: np.ndarray, a_train_embeddings: li
     return 1 if avg_score > 0.5 else 0
 
 
-def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, random_seed=42):
+def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred):
     model.eval()
 
     aelfric_scores = []
@@ -419,7 +419,7 @@ def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y
 
     for test_emb, true_label in zip(x_test, y_test):
         # Pair this test embedding with Aelfric reference embeddings
-        random.seed(random_seed)  # Ensure reproducibility for sampling
+        random.seed(config["random_seed"])  # Ensure reproducibility for sampling
         aelfrics = random.sample(
             a_train_embeddings.tolist(),
             k=min(len(a_train_embeddings), 100)
@@ -579,10 +579,10 @@ def main():
 
     logger = setup_logging()
 
-    model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
+    model_loaded = True  # Set to True if you want to load a pre-trained model instead of training a new one
 
     if model_loaded:
-        model_path = "models/linear_model (94_76_99) (10_18_2026 22-32).pth"  # Update with your model path
+        model_path = "models/linear_model (92_67_100) (10_28_2026 18-57).pth"  # Update with your model path
         #model_path = "models/linear_model E(95_81_99) (10_12_2026 16-52).pth"
         model = load_model(model_path)
 
@@ -590,7 +590,7 @@ def main():
         x_train, x_test, y_train, y_test = prepare_data()   
 
         # Find and print accuracies
-        y_pred = predict_linear_model(model, x_test, a_train_embeddings, random_seed=config["random_seed"])
+        y_pred = predict_linear_model(model, x_test)
 
         acc_overall = accuracy(y_test, y_pred)
         class_acc = class_accuracy(y_test, y_pred)
