@@ -302,7 +302,9 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
 
     model = LinearBinaryModel().to(device)
 
-    criterion = nn.BCEWithLogitsLoss()
+    #This is added to penalize mistakes on Aelfric labels by weighing them heavier
+    pos_weight = torch.tensor([np.sum(y_train == 0) / np.sum(y_train == 1)], dtype=torch.float32).to(device)  # Unknown/Aelfric ratio
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
     # Set up the optimizer based on the configuration
     if config["weight_decay"] and config["optimizer"] == "AdamW":
