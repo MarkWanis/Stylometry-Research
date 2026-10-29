@@ -19,8 +19,8 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logging.info(f"Using device: {device}")
 
-model_name : str = "models/linear_model (97_98_97) (10_17_2026 21-10).pth"
-model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
+model_name : str = "models/linear_model (94._91._94.) (10_21_2026 22-26).pth"
+model_loaded = True  # Set to True if you want to load a pre-trained model instead of training a new one
 
 # Defines the configuration for the model and training parameters
 config: dict = {
@@ -716,7 +716,7 @@ def main():
     global accuracy_data, model_name, model_loaded
 
     if model_loaded:
-        model_path = "models/linear_model (94_75_99) (09_22_2026 11-00).pth"  # Update with your model path
+        #model_path = "models/linear_model (94_75_99) (09_22_2026 11-00).pth"  # Update with your model path
         model = load_model(model_name)
 
         # Prepare the training and testing data
@@ -740,7 +740,7 @@ def main():
         accuracy_data["aelfric_accuracy"] = f"{round(class_acc['Aelfric']*100, 2)}%"
         accuracy_data["unknown_accuracy"] = f"{round(class_acc['Unknown']*100, 2)}%"
 
-        save_to_spreadsheet()
+        #save_to_spreadsheet()
 
     else:
         # Train the model
