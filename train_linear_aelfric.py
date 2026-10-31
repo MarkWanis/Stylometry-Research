@@ -20,21 +20,21 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logging.info(f"Using device: {device}")
 
 model_name : str = "models/linear_model (94._91._94.) (10_21_2026 22-26).pth"
-model_loaded = True  # Set to True if you want to load a pre-trained model instead of training a new one
+model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
 
 # Defines the configuration for the model and training parameters
 config: dict = {
     "author": "Mark",
     "input_dim": 2048,
-    "hidden_dim": 500,
+    "hidden_dim": [50, 25],
     "optimizer": "AdamW",
     "weight_decay": 0.35,
-    "dropout_rate": 0.3,
+    "dropout_rate": 0.05,
     "num_epochs": 75,
     "batch_size": 32,
-    "test_split": 0.3,
+    "test_split": 0.2,
     "threshold": 0.2,
-    "learning_rate": 4e-4,
+    "learning_rate": 5e-5,
     "random_seed": 11,
     "num_samples": int(1e4),
     "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
@@ -48,19 +48,43 @@ class LinearBinaryModel(nn.Module):
     def __init__(self):
         super().__init__()
         if config["hidden_dim"] is not None:
-            self.hidden = nn.Linear(config["input_dim"], config["hidden_dim"])  # input → hidden
-            self.relu = nn.ReLU()                            # non-linearity
-            self.dropout = nn.Dropout(config["dropout_rate"])
-            self.output = nn.Linear(config["hidden_dim"], 1)          # hidden → output
+            if config["hidden_dim"] is int: # If hidden_dim is a single integer, create one hidden layer
+                self.hidden = nn.Linear(config["input_dim"], config["hidden_dim"])  # input → hidden
+                self.relu = nn.ReLU()                            # non-linearity
+                self.dropout = nn.Dropout(config["dropout_rate"])
+                self.output = nn.Linear(config["hidden_dim"], 1)          # hidden → output
+
+            else: # If hidden_dim is a list, create multiple hidden layers
+                self.hidden1 = nn.Linear(config["input_dim"], config["hidden_dim"][0])  # input → hidden
+                self.relu1 = nn.ReLU()                            # non-linearity
+                self.dropout1 = nn.Dropout(config["dropout_rate"])
+                self.hidden2 = nn.Linear(config["hidden_dim"][0], config["hidden_dim"][1])  # input → hidden
+                self.relu2 = nn.ReLU()                            # non-linearity
+                self.dropout2 = nn.Dropout(config["dropout_rate"])
+                self.output = nn.Linear(config["hidden_dim"][1], 1)          # hidden → output
+
         else:
             self.output = nn.Linear(config["input_dim"], 1)          # input → output
 
     def forward(self, x):
         if config["hidden_dim"] is not None:
-            x = self.hidden(x)
-            x = self.relu(x)
-            x = self.dropout(x)
-        x = self.output(x)   # scalar score
+            if config["hidden_dim"] is int: # If hidden_dim is a single integer, create one hidden layer
+                x = self.hidden(x)
+                x = self.relu(x)
+                x = self.dropout(x)
+                x = self.output(x)   # scalar score
+
+            else: # If hidden_dim is a list, create multiple hidden layers
+                x = self.hidden1(x)
+                x = self.relu1(x)
+                x = self.dropout1(x)
+                x = self.hidden2(x)
+                x = self.relu2(x)
+                x = self.dropout2(x)
+                x = self.output(x)   # scalar score
+
+        else:
+            x = self.output(x)   # scalar score
 
         return x
 
@@ -716,7 +740,6 @@ def main():
     global accuracy_data, model_name, model_loaded
 
     if model_loaded:
-        #model_path = "models/linear_model (94_75_99) (09_22_2026 11-00).pth"  # Update with your model path
         model = load_model(model_name)
 
         # Prepare the training and testing data
@@ -728,7 +751,7 @@ def main():
         acc_overall = accuracy(y_test, y_pred)
         class_acc = class_accuracy(y_test, y_pred)
 
-        #log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, acc_overall, class_acc)
+        log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred)
 
         logging.info("\n===== Test Accuracies =====\n")
         logging.info(f"Overall test accuracy: {acc_overall*100:.2f}%")
@@ -740,7 +763,7 @@ def main():
         accuracy_data["aelfric_accuracy"] = f"{round(class_acc['Aelfric']*100, 2)}%"
         accuracy_data["unknown_accuracy"] = f"{round(class_acc['Unknown']*100, 2)}%"
 
-        #save_to_spreadsheet()
+        save_to_spreadsheet()
 
     else:
         # Train the model
@@ -777,22 +800,22 @@ def main():
         model_loaded = True
 
         # Visualizations
-        #in_errors = error(in_accs)
-        #out_errors = error(out_accs)
+        in_errors = error(in_accs)
+        out_errors = error(out_accs)
 
-        #visualization(model, in_errors, "In Sample Error", "inSample", "")
-        #visualization(model, out_errors, "Out of Sample Error", "outSample", "")
-        #visualization(model, {"In Sample Error": in_errors["Error"], "Out of Sample Error": out_errors["Error"]}, "Both Error", "bothSample", "")
+        visualization(model, in_errors, "In Sample Error", "inSample", "")
+        visualization(model, out_errors, "Out of Sample Error", "outSample", "")
+        visualization(model, {"In Sample Error": in_errors["Error"], "Out of Sample Error": out_errors["Error"]}, "Both Error", "bothSample", "")
         #generate_heatmap(model)
 
 
 if __name__ == '__main__':
     for i in range(1):
-        for j in range(3):
+        for j in range(2):
             main()
-            logging.info(f"Completed iteration {j+1}/3")
+            logging.info(f"Completed iteration {j+1}/2")
             config["threshold"] += 0.1  # Increment the threshold for the next iteration
 
         config["threshold"] = 0.3
-        config["test_split"] += 0.1
+        config["num_epochs"] += 25
         model_loaded = False  # Reset model_loaded for each iteration
