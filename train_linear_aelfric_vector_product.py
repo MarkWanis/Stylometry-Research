@@ -24,22 +24,25 @@ Things to do:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 
-
 class LinearBinaryModel(nn.Module):
     def __init__(self, input_dim=1024, hidden_dim=512, dropout_rate=0.2):
         super().__init__()
-        self.hidden = nn.Linear(input_dim, hidden_dim)  # input → hidden
-        self.relu = nn.ReLU()                            # non-linearity
-        #self.hidden2 = nn.Linear(hidden_dim, hidden_dim)  # hidden → hidden
-        self.dropout = nn.Dropout(dropout_rate)
-        self.output = nn.Linear(hidden_dim, 1)          # hidden → output
+        self.use_hidden = bool(hidden_dim)  # False for 0 or None
+
+        if self.use_hidden:
+            self.hidden = nn.Linear(input_dim, hidden_dim)  # input → hidden
+            self.relu = nn.ReLU()
+            self.dropout = nn.Dropout(dropout_rate)
+            self.output = nn.Linear(hidden_dim, 1)          # hidden → output
+        else:
+            self.output = nn.Linear(input_dim, 1)           # input → output (logistic regression)
 
     def forward(self, x):
-        x = self.hidden(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.output(x)   # scalar score
-        return x
+        if self.use_hidden:
+            x = self.hidden(x)
+            x = self.relu(x)
+            x = self.dropout(x)
+        return self.output(x)
 
 '''
 class Dataset(Dataset):
@@ -224,17 +227,17 @@ def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int =
     # Aelfric–Aelfric pairs (1)
     for emb_a in a_sample:
         for emb_b in a_sample:
-            aa_pairs.append(np.concatenate([emb_a, emb_b]))
+            aa_pairs.append(np.multiply(emb_a, emb_b))
 
     # Aelfric–Unknown pairs (0)
     for emb_a in a_sample:
         for emb_b in u_sample:
-            au_pairs.append(np.concatenate([emb_a, emb_b]))
+            au_pairs.append(np.multiply(emb_a, emb_b))
 
     # Unknown-Aelfric pairs (0)
     for emb_a in u_sample:
         for emb_b in a_sample:
-            au_pairs.append(np.concatenate([emb_a, emb_b]))
+            au_pairs.append(np.multiply(emb_a, emb_b))
 
     random.seed(random_seed)  # Ensure reproducibility for sampling
     au_sample = random.sample(au_pairs, k=min(num_samples*3, len(au_pairs)))  # Sample to limit size
@@ -284,6 +287,8 @@ batch_size: The batch size for training.
 Returns: The trained model along with dictionaries containing in-sample and out-of-sample accuracies for overall, Aelfric, and Unknown classes.
 """
 def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray, a_train_embeddings: np.ndarray, config: dict) -> tuple[LinearBinaryModel, dict, dict]:
+    random.seed(config["random_seed"]); np.random.seed(config["random_seed"])
+    torch.manual_seed(config["random_seed"])
     x_tensor = torch.tensor(x_train, dtype=torch.float32).to(device)
     y_tensor = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1).to(device)  # shape (N_total, 1)
 
@@ -295,9 +300,9 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dim=config["hidden_dim"], dropout_rate=config["dropout_rate"]).to(device)
 
     #This is added to penalize mistakes on Aelfric labels by weighing them heavier
-    pos_weight = torch.tensor([150/75]).to(device)  # Unknown/Aelfric ratio
+    pos_weight = torch.tensor([np.sum(y_train == 0) / np.sum(y_train == 1)], dtype=torch.float32).to(device)  # Unknown/Aelfric ratio
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.35)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"])
 
     # Dataset with weights
     dataset = torch.utils.data.TensorDataset(x_tensor, y_tensor)
@@ -374,7 +379,7 @@ def predict_linear_model(model: LinearBinaryModel, x_new: np.ndarray, a_train_em
     else:
         preds = []
         for test_emb in x_new:
-            pred = predict_single_embedding(model, test_emb, a_train_embeddings, random_seed=config["random_seed"])
+            pred = predict_single_embedding(model, test_emb, a_train_embeddings, random_seed=config["random_seed"],threshold = config["threshold"])
             preds.append(pred)
         return preds
 """
@@ -386,12 +391,12 @@ test_emb: A single embedding to classify (np.ndarray of shape (1024,)).
 a_train_embeddings: A list of Aelfric training embeddings to pair with the test embedding for prediction.
 Returns: A single predicted class (+1 for Aelfric, 0 for Unknown) for the test embedding based on the average score from the model.
 """
-def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_train_embeddings: list[np.ndarray], random_seed: int = 42) -> int:
+def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_train_embeddings: list[np.ndarray], random_seed: int = 42, threshold =0.5) -> int:
     # Sample fewer Aelfric embeddings for speed
     random.seed(random_seed)  # Ensure reproducibility for sampling
     aelfrics = random.sample(a_train_embeddings.tolist(), k=min(len(a_train_embeddings), 100))
 
-    pairs = [np.concatenate([a, test_emb]) for a in aelfrics]
+    pairs = [np.multiply(a, test_emb) for a in aelfrics]
     x_tensor = torch.tensor(np.stack(pairs), dtype=torch.float32).to(device)
 
     # Switches to eval
@@ -403,7 +408,7 @@ def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_t
 
     # Aggregate:
     avg_score = np.mean(probs)  # average probability across all pairs
-    return 1 if avg_score > 0.5 else 0
+    return 1 if avg_score > threshold else 0
 
 
 def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, random_seed=42):
@@ -420,7 +425,7 @@ def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y
             k=min(len(a_train_embeddings), 100)
         )
 
-        pairs = [np.concatenate([a, test_emb]) for a in aelfrics]
+        pairs = [np.multiply(a, test_emb) for a in aelfrics]
         x_tensor = torch.tensor(
             np.stack(pairs),
             dtype=torch.float32
@@ -533,6 +538,31 @@ def class_accuracy(y_true: list[int], y_pred: list[int]) -> dict:
     return {"Aelfric": acc_aelfric, "Unknown": acc_unknown}
 
 """
+This calculates the best threshold  
+"""
+def sweep_thresholds(model, x_test, y_test, a_train_embeddings, random_seed, thresholds=None):
+    from sklearn.metrics import roc_auc_score
+    thresholds = thresholds if thresholds is not None else np.arange(0.2, 0.81, 0.05)
+
+    random.seed(random_seed)  # same 100 references as predict_single_embedding
+    refs = np.array(random.sample(a_train_embeddings.tolist(), k=min(len(a_train_embeddings), 100)))
+
+    model.eval()
+    scores = []
+    with torch.no_grad():
+        for t in x_test:
+            pairs = torch.tensor(refs * t, dtype=torch.float32).to(device)
+            scores.append(torch.sigmoid(model(pairs).squeeze()).mean().item())
+    scores = np.array(scores); y = np.array(y_test)
+
+    print(f"ROC AUC: {roc_auc_score(y, scores):.4f}")
+    for th in thresholds:
+        pred = (scores > th).astype(int)
+        print(f"thr {th:.2f}: overall {np.mean(pred == y)*100:.2f}  "
+              f"Aelfric {np.mean(pred[y == 1] == 1)*100:.2f}  Unknown {np.mean(pred[y == 0] == 0)*100:.2f}")
+    return scores
+
+"""
 Calculates error based on accuracy dictionaries for in-sample and out-of-sample data.
 
 accs: A dictionary containing accuracy values for overall, Aelfric, and Unknown classes.
@@ -594,15 +624,17 @@ def main():
 
     else:
         config = {
-           "input_dim": 2048,
-           "hidden_dim": 512,
+           "learning_rate": 3e-4,
+           "weight_decay": 0.35,
+           "input_dim": 1024,
+           "hidden_dim": 50,
            "dropout_rate": 0.3,
            "num_epochs": 75,
            "batch_size": 32,
            "test_split": 0.3,
            "random_seed": 11,
            "num_samples": 1000,
-           "threshold": 0.75,
+           "threshold": 0.45,
            "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
            "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
        }

@@ -24,25 +24,22 @@ Things to do:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 
+
 class LinearBinaryModel(nn.Module):
     def __init__(self, input_dim=1024, hidden_dim=512, dropout_rate=0.2):
         super().__init__()
-        self.use_hidden = bool(hidden_dim)  # False for 0 or None
-
-        if self.use_hidden:
-            self.hidden = nn.Linear(input_dim, hidden_dim)  # input → hidden
-            self.relu = nn.ReLU()
-            self.dropout = nn.Dropout(dropout_rate)
-            self.output = nn.Linear(hidden_dim, 1)          # hidden → output
-        else:
-            self.output = nn.Linear(input_dim, 1)           # input → output (logistic regression)
+        self.hidden = nn.Linear(input_dim, hidden_dim)  # input → hidden
+        self.relu = nn.ReLU()                            # non-linearity
+        #self.hidden2 = nn.Linear(hidden_dim, hidden_dim)  # hidden → hidden
+        self.dropout = nn.Dropout(dropout_rate)
+        self.output = nn.Linear(hidden_dim, 1)          # hidden → output
 
     def forward(self, x):
-        if self.use_hidden:
-            x = self.hidden(x)
-            x = self.relu(x)
-            x = self.dropout(x)
-        return self.output(x)
+        x = self.hidden(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        x = self.output(x)   # scalar score
+        return x
 
 '''
 class Dataset(Dataset):
@@ -227,17 +224,17 @@ def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int =
     # Aelfric–Aelfric pairs (1)
     for emb_a in a_sample:
         for emb_b in a_sample:
-            aa_pairs.append(np.multiply(emb_a, emb_b))
+            aa_pairs.append(np.concatenate([emb_a, emb_b]))
 
     # Aelfric–Unknown pairs (0)
     for emb_a in a_sample:
         for emb_b in u_sample:
-            au_pairs.append(np.multiply(emb_a, emb_b))
+            au_pairs.append(np.concatenate([emb_a, emb_b]))
 
     # Unknown-Aelfric pairs (0)
     for emb_a in u_sample:
         for emb_b in a_sample:
-            au_pairs.append(np.multiply(emb_a, emb_b))
+            au_pairs.append(np.concatenate([emb_a, emb_b]))
 
     random.seed(random_seed)  # Ensure reproducibility for sampling
     au_sample = random.sample(au_pairs, k=min(num_samples*3, len(au_pairs)))  # Sample to limit size
@@ -298,7 +295,7 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dim=config["hidden_dim"], dropout_rate=config["dropout_rate"]).to(device)
 
     #This is added to penalize mistakes on Aelfric labels by weighing them heavier
-    pos_weight = torch.tensor([np.sum(y_train == 0) / np.sum(y_train == 1)], dtype=torch.float32).to(device)  # Unknown/Aelfric ratio
+    pos_weight = torch.tensor([150/75]).to(device)  # Unknown/Aelfric ratio
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.35)
 
@@ -394,7 +391,7 @@ def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_t
     random.seed(random_seed)  # Ensure reproducibility for sampling
     aelfrics = random.sample(a_train_embeddings.tolist(), k=min(len(a_train_embeddings), 100))
 
-    pairs = [np.multiply(a, test_emb) for a in aelfrics]
+    pairs = [np.concatenate([a, test_emb]) for a in aelfrics]
     x_tensor = torch.tensor(np.stack(pairs), dtype=torch.float32).to(device)
 
     # Switches to eval
@@ -423,7 +420,7 @@ def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y
             k=min(len(a_train_embeddings), 100)
         )
 
-        pairs = [np.multiply(a, test_emb) for a in aelfrics]
+        pairs = [np.concatenate([a, test_emb]) for a in aelfrics]
         x_tensor = torch.tensor(
             np.stack(pairs),
             dtype=torch.float32
@@ -597,15 +594,15 @@ def main():
 
     else:
         config = {
-           "input_dim": 1024,
-           "hidden_dim": 500,
-           "dropout_rate": 0.5,
+           "input_dim": 2048,
+           "hidden_dim": 512,
+           "dropout_rate": 0.3,
            "num_epochs": 75,
            "batch_size": 32,
            "test_split": 0.3,
            "random_seed": 11,
            "num_samples": 1000,
-           "threshold": 0.6,
+           "threshold": 0.75,
            "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
            "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
        }
