@@ -28,16 +28,16 @@ print("Using device:", device)
 config: dict = {
     "author": "Emma",
     "input_dim": 1024,
-    "hidden_dim": None,
+    "hidden_dim": 512,
     "optimizer": "Adam",
-    "weight_decay": None,
-    "dropout_rate": 0.4,
+    "weight_decay": 0.1,
+    "dropout_rate": 0.3,
     "num_epochs": 30,
     "batch_size": 32,
     "test_split": 0.5,
-    "aelfric_threshold": 0.2,
+    "aelfric_threshold": 0.3,
     "learning_rate": 1e-3,
-    "random_seed": 11,
+    "random_seed": 12,
     "num_samples": int(1e4),
     "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
     "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
@@ -150,26 +150,21 @@ Returns: A tuple containing a NumPy array of embeddings and a list of unique tex
 """
 def load_embeddings(results_dir: str, max_num_of_texts: int = 500):
     embeddings: list = []
-    ids: list = []
+    names: list = []
     num_of_texts = 0
-    
-    # Go through every json file in the directory
-    for f in tqdm(Path(results_dir).glob('*.json')):
-        with open(f, 'r') as file:
-            # Store the embeddings and ids associated with them
-            data = json.load(file)
 
-            job_id = next(iter(data))  # Get the job_id (Same as list(data.keys())[0])
-            embeddings.append(data[job_id]['embedding']) # Appends text embedding
-            text_id = job_id.split('_')[1] # Extracts text ID from job_id
-            ids.append(text_id) # Appends text ID to the list of IDs
+    for f in tqdm(sorted(Path(results_dir).glob('*.json'))):  # sorted = deterministic order
+        with open(f, 'r') as file:
+            data = json.load(file)
+            job_id = next(iter(data))
+            embeddings.append(data[job_id]['embedding'])
+            names.append(f.name)  # the file name, e.g. "job_123_chunk4.json"
 
         num_of_texts += 1
         if num_of_texts > max_num_of_texts:
             break
-                
-    # Return the embeddings and ids
-    return np.array(embeddings)
+
+    return np.array(embeddings), names
 
 """
 THIS ONLY WORKS ON TEXT LEVEL, NOT CHUNK LEVEL. NEED TO FIX THIS TO KEEP CHUNKS TOGETHER.
@@ -205,7 +200,7 @@ def load_data(config: dict) -> tuple[np.ndarray, np.ndarray, list[int], list[int
     ids = a_ids + u_ids
 
     # Randomly split the full works while keeping embeddings, IDs, and labels aligned
-    x_train, x_test, y_train, y_test, id_train, id_test = train_test_split(embeddings, y, ids, test_size=config["test_split"], stratify=y)
+    x_train, x_test, y_train, y_test, id_train, id_test = train_test_split(embeddings, y, ids, test_size=config["test_split"], random_state = config["random_seed"], stratify=y)
 
     # Save the Aelfric training embeddings for later use in predictions
   
@@ -266,24 +261,51 @@ Loads the data and prepares training pairs
 Returns: Training and testing sets along with Aelfric embeddings for later use in predictions.
 """
 def prepare_data():
-    # Get aelfric and unknown embeddings
-    aelfric_dict = load_embeddings("data/sorted_embeddings/Train/Large Chunk/Aelfric")
-    unknown_dict = load_embeddings("data/sorted_embeddings/Train/Large Chunk/Unknown")
+    X_a, names_a = load_embeddings("data/sorted_embeddings/Train/Large Chunk/Aelfric")
+    X_u, names_u = load_embeddings("data/sorted_embeddings/Train/Large Chunk/Unknown")
 
-    # Stack the embeddings into matrices
-    X_a = aelfric_dict # shape (N_a, 1024)
-    X_u = unknown_dict # shape (N_u, 1024)
+    y_a = np.ones(len(X_a))
+    y_u = np.zeros(len(X_u))
 
-    y_a = np.ones(len(X_a)) # +1 for Aelfric
-    y_u = np.zeros(len(X_u)) # 0 for Unknown
+    X = np.vstack([X_a, X_u])
+    y = np.concatenate([y_a, y_u])
+    names = np.array(names_a + names_u)
 
-    X = np.vstack([X_a, X_u]) # shape (N_total, 1024)
-    y = np.concatenate([y_a, y_u]) # shape (N_total,)
+    X_train, X_test, y_train, y_test, names_train, names_test = train_test_split(
+        X, y, names, test_size=0.2, random_state = config["random_seed"], stratify=y)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+    return X_train, X_test, y_train, y_test, names_train, names_test
 
-    return X_train, X_test, y_train, y_test
+#This prints the names of the files that were incorrectly classified
+def print_misclassified(names, y_true, y_pred, split_name: str = "Test") -> None:
+    """
+    Prints the file names of every misclassified sample.
 
+    names: File names aligned with y_true / y_pred.
+    y_true: True labels (1 = Aelfric, 0 = Unknown).
+    y_pred: Predicted labels (1 = Aelfric, 0 = Unknown).
+    """
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+    names = np.array(names)
+
+    wrong = y_true != y_pred
+    label = {1: "Aelfric", 0: "Unknown"}
+
+    # Aelfric works the model called Unknown
+    false_neg = names[wrong & (y_true == 1)]
+    # Unknown works the model called Aelfric
+    false_pos = names[wrong & (y_true == 0)]
+
+    print(f"\n===== MISCLASSIFIED {split_name.upper()} FILES ({wrong.sum()} of {len(y_true)}) =====")
+
+    print(f"\nActually {label[1]}, predicted {label[0]} ({len(false_neg)}):")
+    for n in false_neg:
+        print(f"  {n}")
+
+    print(f"\nActually {label[0]}, predicted {label[1]} ({len(false_pos)}):")
+    for n in false_pos:
+        print(f"  {n}")
 
 """
 Creates the model, trains it on the training data, and evaluates it on both training and testing data.
@@ -579,7 +601,7 @@ def main():
 
     logger = setup_logging()
 
-    model_loaded = True  # Set to True if you want to load a pre-trained model instead of training a new one
+    model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
 
     if model_loaded:
         model_path = "models/linear_model (92_67_100) (10_28_2026 18-57).pth"  # Update with your model path
@@ -587,10 +609,11 @@ def main():
         model = load_model(model_path)
 
         # Prepare the training and testing data
-        x_train, x_test, y_train, y_test = prepare_data()   
+        x_train, x_test, y_train, y_test, names_train, names_test = prepare_data()
 
-        # Find and print accuracies
         y_pred = predict_linear_model(model, x_test)
+
+        print_misclassified(names_test, y_test, y_pred, "Test")
 
         acc_overall = accuracy(y_test, y_pred)
         class_acc = class_accuracy(y_test, y_pred)
@@ -605,13 +628,15 @@ def main():
     else:
 
         # Train the model
-        x_train, x_test, y_train, y_test = prepare_data()    
+        x_train, x_test, y_train, y_test, names_train, names_test = prepare_data()  
 
         model, in_accs, out_accs = train_linear_model(x_train, y_train, x_test, y_test, config)
         logger.info("Training complete.")
 
         # Find and print accuracies
         y_pred = predict_linear_model(model, x_test)
+
+        print_misclassified(names_test, y_test, y_pred, "Test")
 
         acc_overall = accuracy(y_test, y_pred)
         class_acc = class_accuracy(y_test, y_pred)
