@@ -625,16 +625,16 @@ def main():
     else:
         config = {
            "learning_rate": 3e-4,
-           "weight_decay": 0.35,
+           "weight_decay": 0.25,
            "input_dim": 1024,
-           "hidden_dim": 50,
+           "hidden_dim": 0,
            "dropout_rate": 0.3,
            "num_epochs": 75,
            "batch_size": 32,
            "test_split": 0.3,
            "random_seed": 11,
            "num_samples": 1000,
-           "threshold": 0.45,
+           "threshold": 0.5,
            "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
            "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
        }
