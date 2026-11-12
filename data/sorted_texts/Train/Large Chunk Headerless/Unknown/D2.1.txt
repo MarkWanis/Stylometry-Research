@@ -1,0 +1,564 @@
+Aquila earn.
+Arpa earngeat.
+Griphus giow.
+Ossigra gos.
+Cignus elfetu.
+Mergulus dopfugel.
+Fulix ganot.
+Aneta æned.
+uel anax æned.
+Anser uel ganra hwit gos.
+Ganta uel auca græg gos.
+Olor swann.
+Alacið mæw uel alcedo.
+Accipiter goshafoc uel aucarius.
+Herodius wealh hafoc uel falco uel capus.
+Hetum spearhafoc.
+Siricaricis mushafoc.
+Miluus uel garrulus glida.
+Ciconia storc.
+Grus cran.
+Onagratulus raradumbla þæt his pur.
+Cucurata hleapewince.
+Acegia snite.
+Fursianus worhana.
+Luscinia nihtegala uel achalantida.
+Columba culfre.
+Palumba cuscote uel wuduculfre.
+Coruus hræfn uel corax.
+Cornix crawe.
+Cornicula cyo uel graula.
+Gralus hroc.
+Beatica stearn.
+Marsopicus fina uel ficus.
+Picus higera uel gagia.
+Noctua ule uel strix uel cauanna.
+Rubisca salthaga uel rudduc.
+Fringilla finc.
+Sigatula fræcmase.
+Parra colmase.
+Parrula spicmase.
+Bitorius wrænna uel pintorus.
+Tilaris lawerce uel alauda.
+Ficitula sugga.
+Scutatis ragofinc.
+Merula þrostle.
+Cardella linece.
+Turdus scric.
+Strutio þryssce.
+Cuculus geac uel ciculus tucos.
+Birbicaliolus eorðling uel tanticus.
+Pullus cycen.
+Ornithia fugelas uel orneas.
+Stirnus stær uel fulix.
+Passer spearewa.
+Gallus coc.
+Gallinacius i capun capo.
+Gallina hæn.
+Ornitha gr hænn.
+Hirundo swealewe.
+Nocticorax nihtræfn.
+Ardea hragra.
+Diomedia gr uel herodios swan.
+Turdella scealfor.
+Mergula scealfor.
+Butio cyta.
+Soricarius bleria pyttel.
+Bubo huf.
+Pellicanus stangella & wanfota.
+Ortigometra segcscara.
+Coturnix erschæn.
+Filomela nihtegale.
+Ciupella hulfestran.
+Ismarus alietum spearhafoc.
+Uiperina nædderwinde.
+Scorellus clodhamer and feldeware uel bugium.
+Gubernio i steora.
+Gubernator nauis steorman.
+Nauta i remex reþra.
+Nauis graece faselus scip.
+Archiromacus swift scip.
+Scafa ærendscip.
+Barca flotscip.
+Liburna hulc.
+Dromo æsc.
+Pontonium flyte.
+Trabaria i caudex punt i pontonium.
+Puppis se æftera stemn.
+Cumba þurruc.
+Carina i cimba bytme.
+Fori i tabulata nauium scipes flor.
+Columbaria arlocu.
+Remi ara.
+Trastra þoftan.
+Palmula arbled.
+Antemna seglgyrd.
+Cornua þa ytemystan endas þære seglgyrde.
+Artemon Malus mëst.
+Modius mæstcyst.
+Carceria hunþyrlu.
+Parastates mæstwist.
+Clauus helma.
+Gubernaculum steorroþur.
+Pons sciphlædder.
+Uela seglu.
+Prora frumstemn.
+Funes restes rapas.
+Spire linan.
+Propes sceatline.
+Pes ueli sceata.
+Safo stæg.
+Opisfera stedingline.
+Prosnesium marels.
+Anguina racca.
+Remulcum tohline.
+Strupiar midlu.
+Cataporates sundline.
+Bolidis sundgerd.
+Aplustra gereðru.
+Estuaria fleotas.
+Glarea ceoselstan.
+Honeraria sciplæst.
+Insirtim sandgewurp.
+Jungetum riscðyfel.
+Ledo nepflod.
+Proceris gearufang.
+Arula heorð Remex reðra.
+Reuma gytestream.
+Scalmus ðoll.
+Tabule bord.
+Uncinos hocas.
+Rostrata nauis i barda.
+Trieris scægð.
+Linter i caupolus bat.
+Musculus i sceortscip.
+Carabus i scapha scipincel.
+Littoraria trochscip.
+Puppis steorsetl.
+Prora ancersetl.
+Trudes spreotas.
+Transtra scipsetl & þoftan.
+i una corona una serta i an gerif fissca oððe an snæs fissca oððe oðra þinga.
+De membris hominum.
+Anima sawl.
+Homo man.
+Antropus man.
+Microcosmus læssa middaneard.
+Corpus lichama.
+Caro flæsc.
+Crementum cið.
+Sensus sefa.
+Uisus gesyhþ.
+Auditus gehyrnes.
+Odoratus swæc.
+Gustus byrignes.
+Tactus æthrine.
+Capud heafod.
+Uertex hnol.
+Caluaria heafodpanne.
+Cerebrum brægn.
+Obcapud foreweard eafod postex.
+Capilli loccas.
+Tautones bruwa.
+Coma feax.
+Cesaries pilos hær.
+Crines loccas.
+Timpor ðunwange.
+Uultus facies uel frons supercilium oferbruwa.
+Intercilium betweoh bruwum.
+Cilium bruwa.
+Palpebre bræwas.
+Oculus eage.
+Lacrima tear.
+Corona helm.
+Pupilla seo.
+Gene hagoswind.
+Barba beard.
+Cin i mentum.
+Male ceocan.
+Maxille cinban.
+Mandibule ceacan.
+Auris eare.
+Nasus nosu.
+Cartilago nosugrisle.
+Internasum neb.
+Flegma hrog.
+Os muð.
+Labrum wæler.
+Dens toð.
+Ingua toðreoma.
+Lingua tunge.
+Faus weo.
+Palatum muðes hrof.
+Sublingua uf.
+Toles grynlas.
+Rumas wasend.
+Gurgulium ðrotbolla.
+Anteria æddre.
+Gula hracu.
+Collum swyra.
+Ceruix hnoll.
+Humera eaxla.
+Scapulus sculdur.
+Brachium earm.
+Ascella oxn.
+Ulna eln.
+Cubitus fæþm.
+Manus hand vel duma.
+Pugna fysð.
+Pugilla gripe.
+Palma handbred uel salair.
+Artus liþu.
+Articuli minores digiti fingras.
+Pollex þuma.
+Index bycniend.
+Salutaris hæletend.
+Ipudicus unewisc.
+Anularis fingerlic.
+Auricularis earscrypel.
+Ungula nægel.
+Truncus bodig.
+Torax breost.
+Mamille tittas.
+Pupille seon.
+Ubera mulierum lac meoluc.
+Cutis hid.
+Pellis fel.
+Pulpa lira.
+Uiscus herðbylig.
+Aruina gelynd.
+Nerui sina.
+Uertuba hweorfa.
+Costa ribb.
+Dorsum ricg.
+Terga bæc.
+Pale Ricgrible.
+Spina hricgmearð.
+Radiolus spacan.
+Spondila hricgrib.
+Medulla mearh.
+Sacra spina se haliga.
+Renes æddran.
+Lumbos lændenu.
+Genitalia þa cennedan.
+Uirilia ða wærlican.
+Uirilius pintel.
+Calamus teors.
+Testiculi herþan.
+Uiscera i uitalia inelfe.
+Meatus utgong.
+Finum gor.
+Anus bæcðearm.
+Nattes earsendu.
+Femor ðeoh.
+Femina inneweard ðeoh.
+Coxa þeohscanca.
+Suffragines hamma.
+Genua cnyowu.
+Crura sconcan.
+Tibia scina.
+Surra sperlira.
+Talos ancleo.
+Pedes fet.
+Planta fotwelma.
+Calx ile.
+Cor heorte.
+Sanguis blod cruor mortuorum.
+Jecor lifer.
+Pulmon lungen.
+Splena milte.
+Fel gealla.
+Stomagus maga.
+Intestinum inelfe.
+Omentum midhriðre.
+Disceptum i reticulum nette.
+Uitalia uiscera renuncule i lundlagan.
+Nomina piscium.
+Coetus hwæl.
+Piscis fisc.
+Pina delfin uel.
+Bacharus mereswin.
+Ballena hran.
+Porcopiscis stiriga.
+Usocus seolh.
+Cancer crabba.
+Ysox leax.
+Ostrea ostre.
+Geniscula mucxle.
+Sardina hæring.
+Platissa floc.
+Item et bubla.
+Coclea weoluc.
+Lucius hacud.
+Mugil idem.
+Tinctus sliu.
+Lypus bærs.
+Castorius befor.
+Chephalus heardra.
+Murenula ael.
+Anguilla smæl æl.
+Sartate smylt.
+Bisarius fiscwelle.
+Textrina web uel telum.
+Liciatorium websceaft.
+Fusum splin.
+Radium hrefl.
+Cladia wefl.
+Deponile wefta.
+Nitorium inspin.
+Uertellum hweorfa.
+Colus wulmod.
+Glomer cliwen.
+Conductum gearnwinde.
+Plumaria byrdinge.
+Stamen wearp.
+Subtimen awebb.
+Pectica flæþecomb.
+Apidiscus webhoc.
+Scaphus uma.
+Tala webgereþru.
+Claus tæbere.
+Fila ðred.
+Lana wul.
+Uellus flis.
+Leno wifþegn.
+Pedissequa abra vel ancilla.
+Alibrum riul.
+Insubula meoduma.
+Ansa hringe.
+Cingulum gyrdels.
+Andeda brondreda.
+Arula fyrpanne.
+Sica tindre.
+Scintilla spearca.
+Titium brand.
+Scindula scid.
+Lignarium algeweorc.
+Finis aerce.
+Fauilla ysle.
+Fumus rec.
+Accendilia weocan.
+Alea tæfel.
+Calculus tæfelstan.
+Aleator tæflere.
+Carpentarius wænwyrhta.
+Plaustrum wæn.
+Rota hweol.
+Themon þisle.
+Radii spacan.
+Canti felgan.
+Naualium dincge.
+Nomina herbarum grece et latine.
+Ascolonia ynneleac.
+Anbila leac.
+Acimus hyndberige.
+Ambrosia hyndhæleþe.
+Artemesia mugwyrt.
+Apollinaris glofwyrt.
+Cinoglossa ribbe.
+Ieptefilos hymelic.
+Astula regia baso popig.
+Cardus smæl þistel.
+Cliton clate.
+Cardamon cærse.
+Apium merce.
+Botracion clufðung.
+Anetum dile.
+Bobonica hratele.
+Acetula ramese.
+Carix segg.
+Brassico wuducerfille.
+Acantan beowirt.
+Camedus heortclæffre.
+Ascolonia cipe.
+Catharticum libbcorn.
+Camellea wulfescamb.
+Arnaglosse wegbrade.
+Cucumeris hwærhwætte.
+Camesete ellenwyrt.
+Agrimonia garclife.
+Centauria eorðgealla.
+Coxa þung.
+Aconita þung.
+Aristologia smerewyrt.
+Calitrice wæterwyrt.
+Artemessia tagantes helde.
+Arthea vel al merscmealewe.
+Coantrum cellendre.
+Brittanice hæwenydele.
+Absinthium weremod.
+Buglosse foxesglofa.
+Bacinia berige.
+Camemelon alba se brada wulfescamb.
+Beneolentem magaðe uel camemellon.
+Canis lingua hundestunge.
+Batracion clufwyrt.
+Cicuta hymelic.
+Anteleuce smæl þistel.
+Bucstalmum hwit mægeðe.
+Apasina clife.
+Cerofolium enneleac.
+Ahillea colloncroh.
+Culmus healm.
+Cicuta wodewistle.
+Anchorum mædere.
+Apis siluatica wudumerce.
+Conize lubestica.
+Iris illirica hwatend.
+Calcesta hwite clæfre.
+Fynuclum finol.
+Innulor eolone.
+Felicem fearn.
+Calcilum iacessure.
+Lactuca leahtric.
+Cinnamomum cymen.
+Furfures sifeða.
+Leontopedium leonfot.
+Felix minuta eoforfearn.
+Laterculum beolone.
+Ciclamina slite.
+Lappatium docce i gledene i carix.
+Gladiolum secgg.
+Malba mealewe.
+Gramina cwice.
+Genista brom.
+Merculialis cedelc cyrlic.
+Millefolium gearewe.
+Galla galloc.
+Erimigio hyndberige.
+Mosilicum ragu.
+Ebolum ellenwyrt.
+Menta minte.
+Marubium harehune.
+Beribalbum greate wyrt.
+Maliterre elehtre.
+Betonica byscopwyrt.
+Nasturcium tuncærse.
+Fraca streawberige.
+Calta reade clëfre.
+Lattyride libcorn.
+Fungus swamm.
+Lappa clate.
+Fenegrecio wyllecerse.
+Lagena crog.
+Lolium ate.
+Colocus eoforðrote.
+Ferula æscðrote.
+Felicina eoforfearn.
+Corimbus ifigcrop.
+Lugustrum hunisucë.
+Delfinion fugeleswyse.
+Gallitricium wæterwyrt.
+Eliotropus sigelhweorfa.
+Malagma sealf.
+Gentiana feldwyrt.
+Mastix hwit cwuda.
+Heraclea calcatrippe.
+Eptafilon gelodwyrt.
+Hedera nigra eorðifig.
+Erifeon liðwyrt idem est ostriago.
+Herba iras gorst.
+Swige banwyrt.
+Gallitrici stælwyrt.
+Eicios haranspeccel.
+Innule campane sperewyrt.
+Intula walwyrt.
+Napis næp.
+Pastinace wuducerfille.
+Nimphea colloncroh.
+Oriathamum eolone.
+Rolon earbe.
+Quinquenerbia ribbe.
+Tenedissa helde.
+Urtica netle.
+Toxa þung.
+Quinquefila hræfnesfot.
+Origanum ælere.
+Sinfitum gallac.
+Radiolum eoforfearn.
+Prosopes bete.
+Prassion hune.
+Titemallos singrene.
+Ramnus þefeðorn.
+Juncus risce.
+Sigsonte stanmercë.
+Ocimum mistel.
+Ueneria mædere.
+Nereta sæminte.
+Plantago wegbrade.
+Uiola aurosa et uiola purpurea banwyrt.
+Senecio grundeswylige.
+Simphonica beolone.
+Pissli reosan.
+Uiumum fugelesleac.
+Speragus wuducærfille.
+Sarpulum brade leac.
+Tribulus gorst.
+Rosmarinum feldmædere.
+Obtalmon mageðe.
+Ruscus cneowholen.
+Raphanus ancre þæt is rædic.
+Thiaspis lambescerse.
+Rodinaps ompre docce.
+Salsa sure.
+Tytymalosca libcorn.
+Papauer popig.
+Umbilicum berwinde.
+Scilla glædene.
+Uictoriale cneowholen.
+Perdicalis homorwyrt.
+Uiperina nædderwyrt.
+Pollegia broðerwyrt hælwyrt dweorges dwostle.
+Unnio ynneleac.
+Peucedanum cammocc.
+Semperuiuum sinfulle.
+Uermenaca rædic.
+Pilogonus et sanguinaria þët is unfortredde.
+Uiole simeringwyrt.
+Stena hæþcole.
+Pentafilon fifleafe.
+Sandix wad.
+Sinapdones cærsan.
+Sicalia lyge.
+Hierobotanum hrætelwyrt.
+Brassica siluatica wuducerefille.
+Gramis birecta cwice.
+Solsequia golde.
+Rosmarina sundeaw.
+Gagantes mugwyrt.
+Athee sæminte.
+Eliotropus sigelwheorfa.
+Ruta rude.
+Iua iue.
+Sisimbrium brocminte.
+Colatidis singrene.
+Scilla et gladiola glædene.
+Scolonia cipe.
+Samsuhchon cyningeswyrt.
+Uulnetrum moldcorn.
+Scirpio læfes.
+Uiticella weodubinde.
+Poloten crawanleac.
+Scolimbos se umbrada þistel.
+Simphonia beolone.
+Senitio syr grundeswylige.
+Pastinace moran.
+Lapadium leloþre.
+Malue herratice geormenleaf.
+Canafel siluatica hænep.
+Ebuli ellenwyrt.
+Mentarium feldminte.
+Cerefolium cerfelle.
+Sinapis senap.
+Abrotomum sæðrenewuda.
+Peonia peonia.
+Lubestica lufestice.
+Rosa rosa.
+Spimon i teuerion brunwyrt.
+Ostriago liþwyrt.
+Muronis cicenamete.
+Humblonis hegehymele.
+Hulsida camedris.
+Arciotidas fyrses berian.
+Actis i sambucus ellen.
+Elimos i lini semen linsæd.

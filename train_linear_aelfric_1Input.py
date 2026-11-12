@@ -28,19 +28,19 @@ print("Using device:", device)
 config: dict = {
     "author": "Emma",
     "input_dim": 1024,
-    "hidden_dim": 512,
-    "optimizer": "Adam",
-    "weight_decay": 0.1,
-    "dropout_rate": 0.3,
-    "num_epochs": 30,
+    "hidden_dim": 256,
+    "optimizer": "AdamW",
+    "weight_decay": 0.001,
+    "dropout_rate": 0.2,
+    "num_epochs": 1000,
     "batch_size": 32,
     "test_split": 0.5,
-    "aelfric_threshold": 0.3,
+    "aelfric_threshold": 0.7,
     "learning_rate": 1e-3,
-    "random_seed": 12,
-    "num_samples": int(1e4),
-    "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
-    "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
+    "random_seed": 11,
+    "num_samples": int(1e5),
+    "aelfric_path": "data/sorted_embeddings/Train/Large Chunk Headerless/Aelfric",
+    "unknown_path": "data/sorted_embeddings/Train/Large Chunk Headerless/Unknown"
 }
 
 class LinearBinaryModel(nn.Sequential):
@@ -261,8 +261,8 @@ Loads the data and prepares training pairs
 Returns: Training and testing sets along with Aelfric embeddings for later use in predictions.
 """
 def prepare_data():
-    X_a, names_a = load_embeddings("data/sorted_embeddings/Train/Large Chunk/Aelfric")
-    X_u, names_u = load_embeddings("data/sorted_embeddings/Train/Large Chunk/Unknown")
+    X_a, names_a = load_embeddings("data/sorted_embeddings/Train/Large Chunk Headerless/Aelfric")
+    X_u, names_u = load_embeddings("data/sorted_embeddings/Train/Large Chunk Headerless/Unknown")
 
     y_a = np.ones(len(X_a))
     y_u = np.zeros(len(X_u))
@@ -333,7 +333,11 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     
 
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"])
+    optimizer = torch.optim.AdamW(
+    model.parameters(),
+    lr=config["learning_rate"],
+    weight_decay=config["weight_decay"],
+    )
 
     # Dataset with weights
     dataset = torch.utils.data.TensorDataset(x_tensor, y_tensor)
