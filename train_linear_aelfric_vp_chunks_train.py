@@ -1,3 +1,5 @@
+import os
+import sys
 import numpy as np
 import json
 from pathlib import Path
@@ -5,6 +7,7 @@ import logging
 import torch
 import torch.nn as nn
 import random
+import sklearn
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -21,21 +24,27 @@ Things to do:
 """
 
 # Set device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print("Using device:", device)
-
+device = torch.device("cpu")
 
 class LinearBinaryModel(nn.Module):
-    def __init__(self, input_dim=2048,  dropout_rate=0.2):
+    def __init__(self, input_dim=1024, hidden_dim=512, dropout_rate=0.2):
         super().__init__()
-        self.dropout = nn.Dropout(dropout_rate)
-        self.output = nn.Linear(input_dim, 1)          # hidden → output
+        self.use_hidden = bool(hidden_dim)  # False for 0 or None
+
+        if self.use_hidden:
+            self.hidden = nn.Linear(input_dim, hidden_dim)  # input → hidden
+            self.relu = nn.ReLU()
+            self.dropout = nn.Dropout(dropout_rate)
+            self.output = nn.Linear(hidden_dim, 1)          # hidden → output
+        else:
+            self.output = nn.Linear(input_dim, 1)           # input → output (logistic regression)
 
     def forward(self, x):
-       
-        x = self.dropout(x)
-        x = self.output(x)   # scalar score
-        return x
+        if self.use_hidden:
+            x = self.hidden(x)
+            x = self.relu(x)
+            x = self.dropout(x)
+        return self.output(x)
 
 '''
 class Dataset(Dataset):
@@ -126,14 +135,28 @@ results_dir: Directory containing the JSON files with embeddings.
 max_num_of_texts: Maximum number of embeddings to process (default is 250).
 Returns: A tuple containing a NumPy array of embeddings and a list of unique text IDs.
 """
+LOAD_ORDER = "windows"  # "windows" = the order NTFS lists files, reproduced on any OS (default)
+                        # "name"    = plain sort by file name
+                        # "native"  = whatever this machine's filesystem returns (the old behavior)
+
+def list_json_files(results_dir: str) -> list:
+    files = list(Path(results_dir).glob('*.json'))
+    if LOAD_ORDER == "native":
+        return files
+    if LOAD_ORDER == "name":
+        return sorted(files, key=lambda p: p.name)
+    # NTFS keeps directory entries sorted case-insensitively, by the uppercased name.
+    # Sorting the same way gives a Windows machine's order on a Mac or Linux machine too.
+    return sorted(files, key=lambda p: (p.name.upper(), p.name))
+
 def load_embeddings(results_dir: str, max_num_of_texts: int = 500) -> tuple[np.ndarray, list]:
     embeddings: list = []
     ids: list = []
     num_of_texts = 0
-    
-    # Go through every json file in the directory
-    for f in tqdm(Path(results_dir).glob('*.json')):
-        with open(f, 'r') as file:
+
+    # Go through every json file in the directory, in a fixed order
+    for f in tqdm(list_json_files(results_dir)):
+        with open(f, 'r', encoding='utf-8') as file:
             # Store the embeddings and ids associated with them
             data = json.load(file)
 
@@ -178,12 +201,52 @@ def load_data(config: dict) -> tuple[np.ndarray, np.ndarray, list[int], list[int
     u_embeddings, u_ids = load_embeddings(config["unknown_path"], config["num_samples"])
 
     # Create the list of all the embeddings, ids, and labels
-    embeddings = np.concatenate((a_embeddings, u_embeddings), axis=0) 
+    embeddings = np.concatenate((a_embeddings, u_embeddings), axis=0)
     y = [1] * len(a_ids) + [0] * len(u_ids)
     ids = a_ids + u_ids
 
-    # Randomly split the full works while keeping embeddings, IDs, and labels aligned
-    x_train, x_test, y_train, y_test, id_train, id_test = train_test_split(embeddings, y, ids, test_size=config["test_split"], random_state=config["random_seed"], stratify=y)
+    split_path = Path(config["split_file"]) if config.get("split_file") else None
+
+    if split_path and split_path.exists():
+        # Rebuild the exact saved split (same texts, same order) so every machine evaluates the same test set
+        if len(set(ids)) != len(ids):
+            raise ValueError(f"IDs are not unique ({len(set(ids))} unique of {len(ids)}), so a split file "
+                             "cannot identify the texts. Use file names as IDs instead.")
+
+        with open(split_path, 'r', encoding='utf-8') as f:
+            split = json.load(f)
+
+        # A split file silently overriding test_split / random_seed would be confusing, so refuse a mismatch
+        for key in ("test_split", "random_seed"):
+            if key in split and split[key] != config[key]:
+                raise ValueError(f"{split_path} was made with {key}={split[key]} but the config has {key}={config[key]}. "
+                                 "Use a different split_file name, or delete the file to create a new split.")
+
+        index = {t: i for i, t in enumerate(ids)}
+        missing = [t for t in split["id_train"] + split["id_test"] if t not in index]
+        if missing:
+            raise ValueError(f"{len(missing)} IDs in {split_path} are not in the data, e.g. {missing[:5]}")
+
+        train_idx = [index[t] for t in split["id_train"]]
+        test_idx = [index[t] for t in split["id_test"]]
+
+        x_train, x_test = embeddings[train_idx], embeddings[test_idx]
+        y_train = [y[i] for i in train_idx]
+        y_test = [y[i] for i in test_idx]
+        id_train, id_test = list(split["id_train"]), list(split["id_test"])
+    else:
+        # Randomly split the full works while keeping embeddings, IDs, and labels aligned
+        x_train, x_test, y_train, y_test, id_train, id_test = train_test_split(embeddings, y, ids, test_size=config["test_split"], random_state=config["random_seed"], stratify=y)
+
+        # Write the split only when a split_file is named and export_split is on, and never over an existing file
+        if split_path and config.get("export_split"):
+            if len(set(ids)) != len(ids):
+                raise ValueError(f"IDs are not unique ({len(set(ids))} unique of {len(ids)}), so the split "
+                                 "cannot be exported by ID. Use file names as IDs instead.")
+            split_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(split_path, 'w', encoding='utf-8') as f:
+                json.dump({"test_split": config["test_split"], "random_seed": config["random_seed"],
+                           "id_train": id_train, "id_test": id_test}, f)
 
     # Save the Aelfric training embeddings for later use in predictions
     a_train_embeddings = x_train[np.array(y_train) == 1]  # Select embeddings where label is 1 (Aelfric)
@@ -220,17 +283,17 @@ def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int =
     # Aelfric–Aelfric pairs (1)
     for emb_a in a_sample:
         for emb_b in a_sample:
-            aa_pairs.append(np.concatenate([emb_a, emb_b]))
+            aa_pairs.append(np.multiply(emb_a, emb_b))
 
     # Aelfric–Unknown pairs (0)
     for emb_a in a_sample:
         for emb_b in u_sample:
-            au_pairs.append(np.concatenate([emb_a, emb_b]))
+            au_pairs.append(np.multiply(emb_a, emb_b))
 
     # Unknown-Aelfric pairs (0)
     for emb_a in u_sample:
         for emb_b in a_sample:
-            au_pairs.append(np.concatenate([emb_a, emb_b]))
+            au_pairs.append(np.multiply(emb_a, emb_b))
 
     random.seed(random_seed)  # Ensure reproducibility for sampling
     au_sample = random.sample(au_pairs, k=min(num_samples*3, len(au_pairs)))  # Sample to limit size
@@ -239,12 +302,74 @@ def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int =
 
 
 """
+Loads the chunk embeddings of the TRAINING texts only (parents in id_train), in a fixed order:
+the order of id_train, then chunk index. Chunks take their parent text's label.
+Returns: chunk embeddings, chunk labels, and each chunk's parent text ID.
+"""
+def load_training_chunks(config: dict, id_train: list, y_train: list) -> tuple[np.ndarray, list, list]:
+    label_by_id = dict(zip(id_train, y_train))
+    by_parent: dict = {}
+    for folder in (config["aelfric_path"], config["unknown_path"]):
+        embs, parents, indexes = load_chunk_embeddings(str(Path(folder) / "chunks"))
+        for emb, parent, idx in zip(embs, parents, indexes):
+            if parent in label_by_id:   # chunks of test texts are never loaded for training
+                by_parent.setdefault(parent, []).append((idx if idx is not None else 0, emb))
+
+    missing = [t for t in id_train if t not in by_parent]
+    if missing:
+        print(f"WARNING: {len(missing)} training texts have no chunk files, e.g. {missing[:5]}")
+
+    chunk_embs, chunk_labels, chunk_parents = [], [], []
+    for t in id_train:
+        for _, emb in sorted(by_parent.get(t, []), key=lambda c: c[0]):
+            chunk_embs.append(emb)
+            chunk_labels.append(label_by_id[t])
+            chunk_parents.append(t)
+    return np.array(chunk_embs), chunk_labels, chunk_parents
+
+
+"""
+Builds training pairs from chunks by sampling index pairs, so the full set of possible pairs is never held in memory.
+
+Aelfric-Aelfric pairs (1) always come from two DIFFERENT texts: chunks of one text are near copies of each other,
+and pairing them would teach the model "same text" instead of "same author".
+Aelfric-Unknown pairs (0) pair an Aelfric chunk with an Unknown chunk (np.multiply is symmetric, so order does not matter).
+Returns: the two lists of pair vectors.
+"""
+def pair_chunk_embeddings(embs: np.ndarray, labels: list, parents: list, n_aa: int, n_au: int, random_seed: int = 42) -> tuple[list, list]:
+    a_idx = [i for i, l in enumerate(labels) if l == 1]
+    u_idx = [i for i, l in enumerate(labels) if l == 0]
+    rng = random.Random(random_seed)
+
+    def sample_pairs(first, second, n, same_class):
+        pairs, seen, attempts = [], set(), 0
+        while len(pairs) < n and attempts < n * 50:
+            attempts += 1
+            i, j = rng.choice(first), rng.choice(second)
+            if same_class:
+                if parents[i] == parents[j]:
+                    continue
+                key = (min(i, j), max(i, j))
+            else:
+                key = (i, j)
+            if key in seen:
+                continue
+            seen.add(key)
+            pairs.append(np.multiply(embs[i], embs[j]))
+        return pairs
+
+    aa_pairs = sample_pairs(a_idx, a_idx, n_aa, True)
+    au_pairs = sample_pairs(a_idx, u_idx, n_au, False)
+    return aa_pairs, au_pairs
+
+
+"""
 Loads the data and prepares training pairs
 
 Returns: Training and testing sets along with Aelfric embeddings for later use in predictions.
 """
 def prepare_data(config: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    x_train_old, x_test, y_train_old, y_test, _, _, a_train_embeddings = load_data(config) #"data/sorted_embeddings/Aelfric", "data/sorted_embeddings/Unknown", 0.5, 13)
+    x_train_old, x_test, y_train_old, y_test, id_train, id_test, a_train_embeddings = load_data(config) #"data/sorted_embeddings/Aelfric", "data/sorted_embeddings/Unknown", 0.5, 13)
     
     print("Loaded embeddings...")
     print(f"Train Embeddings: {x_train_old} ({len(x_train_old)})")
@@ -252,7 +377,19 @@ def prepare_data(config: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.n
     print(f"Test Embeddings: {x_test} ({len(x_test)})")
     print(f"Test Labels: {y_test} ({len(y_test)})")
 
-    aa_pairs, au_pairs = pair_embeddings(x_train_old, y_train_old, num_samples=config["num_samples"], random_seed=config["random_seed"])
+    if config.get("train_on_chunks"):
+        # Train on the chunks of the training texts. The split is still by text, so no text has chunks on both sides.
+        chunk_embs, chunk_labels, chunk_parents = load_training_chunks(config, id_train, y_train_old)
+        print(f"Training chunks: {len(chunk_labels)} ({sum(chunk_labels)} Aelfric, {len(chunk_labels) - sum(chunk_labels)} Unknown) "
+              f"from {len(set(chunk_parents))} texts")
+        aa_pairs, au_pairs = pair_chunk_embeddings(chunk_embs, chunk_labels, chunk_parents,
+                                                   n_aa=config.get("chunk_aa_pairs", 12000), n_au=config.get("chunk_au_pairs", 12000),
+                                                   random_seed=config["random_seed"])
+        print(f"Chunk pairs: {len(aa_pairs)} Aelfric-Aelfric, {len(au_pairs)} Aelfric-Unknown")
+        # References at test time are Aelfric training CHUNKS, matching what the model was trained on
+        a_train_embeddings = chunk_embs[np.array(chunk_labels) == 1]
+    else:
+        aa_pairs, au_pairs = pair_embeddings(x_train_old, y_train_old, num_samples=config["num_samples"], random_seed=config["random_seed"])
 
     # --- Combine and label training pairs ---
     x_aa = np.stack(aa_pairs)
@@ -264,7 +401,7 @@ def prepare_data(config: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.n
     x_train = np.vstack([x_aa, x_au])
     y_train = np.concatenate([y_aa, y_au])
 
-    return np.array(x_train), np.array(y_train), np.array(x_test), np.array(y_test), a_train_embeddings
+    return np.array(x_train), np.array(y_train), np.array(x_test), np.array(y_test), a_train_embeddings, id_test
 
 
 """
@@ -280,6 +417,8 @@ batch_size: The batch size for training.
 Returns: The trained model along with dictionaries containing in-sample and out-of-sample accuracies for overall, Aelfric, and Unknown classes.
 """
 def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray, a_train_embeddings: np.ndarray, config: dict) -> tuple[LinearBinaryModel, dict, dict]:
+    random.seed(config["random_seed"]); np.random.seed(config["random_seed"])
+    torch.manual_seed(config["random_seed"])
     x_tensor = torch.tensor(x_train, dtype=torch.float32).to(device)
     y_tensor = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1).to(device)  # shape (N_total, 1)
 
@@ -291,9 +430,9 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dim=config["hidden_dim"], dropout_rate=config["dropout_rate"]).to(device)
 
     #This is added to penalize mistakes on Aelfric labels by weighing them heavier
-    pos_weight = torch.tensor([150/75]).to(device)  # Unknown/Aelfric ratio
+    pos_weight = torch.tensor([np.sum(y_train == 0) / np.sum(y_train == 1)], dtype=torch.float32).to(device)  # Unknown/Aelfric ratio
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=4e-4, weight_decay=0.65)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"])
 
     # Dataset with weights
     dataset = torch.utils.data.TensorDataset(x_tensor, y_tensor)
@@ -370,7 +509,7 @@ def predict_linear_model(model: LinearBinaryModel, x_new: np.ndarray, a_train_em
     else:
         preds = []
         for test_emb in x_new:
-            pred = predict_single_embedding(model, test_emb, a_train_embeddings, random_seed=config["random_seed"])
+            pred = predict_single_embedding(model, test_emb, a_train_embeddings, random_seed=config["random_seed"],threshold = config["threshold"])
             preds.append(pred)
         return preds
 """
@@ -382,12 +521,12 @@ test_emb: A single embedding to classify (np.ndarray of shape (1024,)).
 a_train_embeddings: A list of Aelfric training embeddings to pair with the test embedding for prediction.
 Returns: A single predicted class (+1 for Aelfric, 0 for Unknown) for the test embedding based on the average score from the model.
 """
-def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_train_embeddings: list[np.ndarray], random_seed: int = 42) -> int:
+def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_train_embeddings: list[np.ndarray], random_seed: int = 42, threshold =0.5) -> int:
     # Sample fewer Aelfric embeddings for speed
     random.seed(random_seed)  # Ensure reproducibility for sampling
     aelfrics = random.sample(a_train_embeddings.tolist(), k=min(len(a_train_embeddings), 100))
 
-    pairs = [np.concatenate([a, test_emb]) for a in aelfrics]  # shape (N_a, 2048)
+    pairs = [np.multiply(a, test_emb) for a in aelfrics]
     x_tensor = torch.tensor(np.stack(pairs), dtype=torch.float32).to(device)
 
     # Switches to eval
@@ -399,7 +538,91 @@ def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_t
 
     # Aggregate:
     avg_score = np.mean(probs)  # average probability across all pairs
-    return 1 if avg_score > 0.5 else 0
+    return 1 if avg_score > threshold else 0
+
+
+"""
+Loads chunk-level embeddings from the "chunks" subfolder of a text-embedding folder
+(for example data/.../Aelfric/chunks/B1.1.1_chunk_0.json).
+
+Each chunk file holds the same job key as its parent text's embedding file, so the parent text ID is taken
+the same way as in load_embeddings (job_id.split('_')[1]). That keeps chunk IDs identical to the text IDs in split_ids.json.
+Returns: chunk embeddings (np.ndarray), the parent text ID of each chunk, and each chunk's index within its text.
+"""
+def load_chunk_embeddings(chunks_dir: str) -> tuple[np.ndarray, list, list]:
+    if not Path(chunks_dir).is_dir():
+        raise FileNotFoundError(f"No chunk folder at {chunks_dir}")
+
+    embeddings, parent_ids, chunk_indexes = [], [], []
+    for f in tqdm(list_json_files(chunks_dir)):
+        with open(f, 'r', encoding='utf-8') as file:
+            data = json.load(file)
+        job_id = next(iter(data))
+        embeddings.append(data[job_id]['embedding'])
+        parent_ids.append(job_id.split('_')[1])
+        chunk_indexes.append(data[job_id].get('chunk_index'))
+    return np.array(embeddings), parent_ids, chunk_indexes
+
+
+"""
+Average model score (probability of Aelfric) for one embedding, using the same Aelfric reference sample
+as predict_single_embedding. Returns the score itself so chunk scores can be averaged per text.
+"""
+def score_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_train_embeddings: np.ndarray, random_seed: int = 42) -> float:
+    random.seed(random_seed)
+    aelfrics = random.sample(a_train_embeddings.tolist(), k=min(len(a_train_embeddings), 100))
+
+    pairs = [np.multiply(a, test_emb) for a in aelfrics]
+    x_tensor = torch.tensor(np.stack(pairs), dtype=torch.float32).to(device)
+
+    model.eval()
+    with torch.no_grad():
+        logits = model(x_tensor).squeeze()
+        probs = torch.sigmoid(logits).cpu().numpy()
+    return float(np.mean(probs))
+
+
+"""
+Scores the chunks of the TEST texts only. Chunks inherit their parent text's label and their parent's side of the split,
+so no chunk of a training text is ever scored. Reports chunk-level accuracy and text-level accuracy (mean chunk score per text).
+"""
+def evaluate_chunks(model, config: dict, id_test: list, y_test: list, a_train_embeddings: np.ndarray, logger) -> dict:
+    label_by_id = dict(zip(id_test, y_test))
+    threshold = config["threshold"]
+
+    chunk_scores, chunk_labels, chunk_parents = [], [], []
+    for folder in (config["aelfric_path"], config["unknown_path"]):
+        embs, parents, _ = load_chunk_embeddings(str(Path(folder) / "chunks"))
+        for emb, parent in zip(embs, parents):
+            if parent in label_by_id:   # keep only chunks whose parent text is in the test set
+                chunk_scores.append(score_single_embedding(model, emb, a_train_embeddings, config["random_seed"]))
+                chunk_labels.append(label_by_id[parent])
+                chunk_parents.append(parent)
+
+    found = set(chunk_parents)
+    missing = [t for t in id_test if t not in found]
+    if missing:
+        logger.warning(f"{len(missing)} test texts have no chunk files, e.g. {missing[:5]}")
+
+    # Chunk level: every chunk is its own test item
+    chunk_scores = np.array(chunk_scores)
+    chunk_pred = [1 if s > threshold else 0 for s in chunk_scores]
+    c_acc, c_cls = accuracy(chunk_labels, chunk_pred), class_accuracy(chunk_labels, chunk_pred)
+
+    # Text level: average the chunk scores of each text
+    by_text: dict = {}
+    for s, parent in zip(chunk_scores, chunk_parents):
+        by_text.setdefault(parent, []).append(s)
+    texts = sorted(by_text)
+    t_labels = [label_by_id[t] for t in texts]
+    t_pred = [1 if np.mean(by_text[t]) > threshold else 0 for t in texts]
+    t_acc, t_cls = accuracy(t_labels, t_pred), class_accuracy(t_labels, t_pred)
+
+    logger.info(f"Chunk level ({len(chunk_labels)} chunks from {len(texts)} texts, threshold {threshold}): "
+                f"overall {c_acc*100:.2f}% | Aelfric {c_cls['Aelfric']*100:.2f}% | Unknown {c_cls['Unknown']*100:.2f}%")
+    logger.info(f"Text level, mean of chunk scores ({len(texts)} texts): "
+                f"overall {t_acc*100:.2f}% | Aelfric {t_cls['Aelfric']*100:.2f}% | Unknown {t_cls['Unknown']*100:.2f}%")
+    return {"chunk": (c_acc, c_cls), "text": (t_acc, t_cls)}
 
 
 def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, random_seed=42):
@@ -416,7 +639,7 @@ def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y
             k=min(len(a_train_embeddings), 100)
         )
 
-        pairs = [np.concatenate([a, test_emb]) for a in aelfrics]
+        pairs = [np.multiply(a, test_emb) for a in aelfrics]
         x_tensor = torch.tensor(
             np.stack(pairs),
             dtype=torch.float32
@@ -529,6 +752,31 @@ def class_accuracy(y_true: list[int], y_pred: list[int]) -> dict:
     return {"Aelfric": acc_aelfric, "Unknown": acc_unknown}
 
 """
+This calculates the best threshold  
+"""
+def sweep_thresholds(model, x_test, y_test, a_train_embeddings, random_seed, thresholds=None):
+    from sklearn.metrics import roc_auc_score
+    thresholds = thresholds if thresholds is not None else np.arange(0.2, 0.81, 0.05)
+
+    random.seed(random_seed)  # same 100 references as predict_single_embedding
+    refs = np.array(random.sample(a_train_embeddings.tolist(), k=min(len(a_train_embeddings), 100)))
+
+    model.eval()
+    scores = []
+    with torch.no_grad():
+        for t in x_test:
+            pairs = torch.tensor(refs * t, dtype=torch.float32).to(device)
+            scores.append(torch.sigmoid(model(pairs).squeeze()).mean().item())
+    scores = np.array(scores); y = np.array(y_test)
+
+    print(f"ROC AUC: {roc_auc_score(y, scores):.4f}")
+    for th in thresholds:
+        pred = (scores > th).astype(int)
+        print(f"thr {th:.2f}: overall {np.mean(pred == y)*100:.2f}  "
+              f"Aelfric {np.mean(pred[y == 1] == 1)*100:.2f}  Unknown {np.mean(pred[y == 0] == 0)*100:.2f}")
+    return scores
+
+"""
 Calculates error based on accuracy dictionaries for in-sample and out-of-sample data.
 
 accs: A dictionary containing accuracy values for overall, Aelfric, and Unknown classes.
@@ -547,7 +795,10 @@ Save the config and model to a file
 def save_model(config, model, path):
     torch.save({
         "model_state_dict": model.state_dict(),
-        "config": config
+        "config": config,
+        # Library versions, so differences between machines can be traced
+        "versions": {"python": sys.version.split()[0], "torch": torch.__version__,
+                     "numpy": np.__version__, "scikit-learn": sklearn.__version__}
     }, path)
     print(f"Model saved to {path}") 
 
@@ -558,7 +809,7 @@ Load the config and model from a file
 def load_model(path):
     checkpoint = torch.load(path, map_location=device)
     config = checkpoint["config"]
-    model = LinearBinaryModel(input_dim=config["input_dim"], dropout_rate=config["dropout_rate"]).to(device)
+    model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dim=config["hidden_dim"], dropout_rate=config["dropout_rate"]).to(device)
     model.load_state_dict(checkpoint["model_state_dict"])
     print(f"Loaded model from {path}")
     return config, model
@@ -567,39 +818,68 @@ def load_model(path):
 def main():
     logger = setup_logging()
 
+    # Git does not track empty folders, so a fresh clone (for example on Windows) may not have these
+    os.makedirs("models", exist_ok=True)
+    os.makedirs("data/visualizations", exist_ok=True)
+    logger.info(f"python {sys.version.split()[0]}, torch {torch.__version__}, "
+                f"numpy {np.__version__}, scikit-learn {sklearn.__version__}")
+
     model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
+    evaluate_on_chunks = False  # With model_loaded, also score the chunks of the test texts (needs a "chunks" folder inside each data folder)
 
     if model_loaded:
-        model_path = "models/linear_model (95_92_96) (09_28_2026 16-04).pth"  # Update with your model path
+        # Must be a checkpoint trained with this file's np.multiply pairs (input_dim 1024).
+        # The old concatenation checkpoints (input_dim 2048) will not work with this code.
+        model_path = "models/<your product checkpoint>.pth"
         config, model = load_model(model_path)
+        config.setdefault("threshold", 0.5)    # older checkpoints have no threshold; use the one from your sheet
+        config.setdefault("split_file", None)  # older checkpoints have no split file; set one to use the original test set
 
-        # Prepare the training and testing data
-        x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data(config)   
+        # Only the test set and the Aelfric reference texts are needed, so skip building training pairs
+        x_train, x_test, y_train, y_test, id_train, id_test, a_train_embeddings = load_data(config)
+        y_test = np.array(y_test)
+
+        if config.get("train_on_chunks"):
+            # A chunk-trained model must be scored against Aelfric training chunks, as in training
+            chunk_embs, chunk_labels, _ = load_training_chunks(config, id_train, y_train)
+            a_train_embeddings = chunk_embs[np.array(chunk_labels) == 1]
 
         # Find and print accuracies
         y_pred = predict_linear_model(model, x_test, a_train_embeddings, config=config)
         acc_overall = accuracy(y_test, y_pred)
         class_acc = class_accuracy(y_test, y_pred)
 
-        log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, random_seed=config["random_seed"])
-
         logger.info(f"Overall test accuracy: {acc_overall*100:.2f}%")
         logger.info(f"Aelfric accuracy: {class_acc['Aelfric']*100:.2f}%")
-        logger.info(f"Unknown accuracy: {class_acc['Unknown']*100:.2f}%")   
+        logger.info(f"Unknown accuracy: {class_acc['Unknown']*100:.2f}%")
+
+        if evaluate_on_chunks or config.get("train_on_chunks"):
+            evaluate_chunks(model, config, id_test, list(y_test), a_train_embeddings, logger)
 
 
     else:
         config = {
-           "input_dim": 2048,
+           "learning_rate": 3e-4,
+           "weight_decay": 0.35,
+           "input_dim": 1024,
+           "hidden_dim": 50,
            "dropout_rate": 0.3,
            "num_epochs": 75,
            "batch_size": 32,
-           "test_split": 0.5,
+           "test_split": 0.3,
            "random_seed": 11,
            "num_samples": 1000,
-           "threshold": 0.35,
+           "threshold": 0.45,
            "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
-           "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
+           "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown",
+           # The first run creates split_file; later runs reuse it, so every machine gets the same test set.
+           # If you change test_split or random_seed, point split_file at a new name (or delete the old file).
+           "split_file": "split_ids.json",
+           "export_split": True,
+           # True = train on the chunk embeddings in <path>/chunks instead of whole-text embeddings (False = as before)
+           "train_on_chunks": True,
+           "chunk_aa_pairs": 12000,   # Aelfric-Aelfric chunk pairs (always from two different texts)
+           "chunk_au_pairs": 12000,   # Aelfric-Unknown chunk pairs
        }
 
 
@@ -609,7 +889,7 @@ def main():
 
 
         # Train the model
-        x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data(config)    
+        x_train, y_train, x_test, y_test, a_train_embeddings, id_test = prepare_data(config)
 
         model, in_accs, out_accs = train_linear_model(x_train, y_train, x_test, y_test, a_train_embeddings, config)
         logger.info("Training complete.")
@@ -626,10 +906,14 @@ def main():
         logger.info(f"Aelfric accuracy: {class_acc['Aelfric']*100:.2f}%")
         logger.info(f"Unknown accuracy: {class_acc['Unknown']*100:.2f}%")
 
+        if evaluate_on_chunks or config.get("train_on_chunks"):
+            evaluate_chunks(model, config, id_test, list(y_test), a_train_embeddings, logger)
+
         # Save the model with descriptive filename
         acc_str = f"{round(acc_overall*100)}_{round(class_acc['Aelfric']*100)}_{round(class_acc['Unknown']*100)}"
         timestamp_str = datetime.now().strftime("%m_%d_%Y %H-%M")
-        model_filename = f"models/linear_model ({acc_str}) ({timestamp_str}).pth" 
+        model_name = "linear_model_chunks" if config.get("train_on_chunks") else "linear_model"
+        model_filename = f"models/{model_name} ({acc_str}) ({timestamp_str}).pth" 
         save_model(config, model, model_filename)
 
         # Visualizations
