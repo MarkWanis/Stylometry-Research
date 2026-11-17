@@ -5,9 +5,13 @@ import logging
 import torch
 import torch.nn as nn
 import random
+
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC, LinearSVC
 from sklearn.metrics import accuracy_score
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from datetime import datetime
@@ -32,7 +36,7 @@ config: dict = {
     "num_epochs": 1,
     "batch_size": 32,
     "test_split": 0.5,
-    "aelfric_threshold": 0.0,
+    "aelfric_threshold": 0.5,
     "learning_rate": 5e-5,
     "random_seed": 11,
     "num_samples": int(1e4),
@@ -42,27 +46,6 @@ config: dict = {
 }
 
 accuracy_data: dict = {}
-
-
-class LinearBinaryModel(nn.Module):
-    def __init__(self):
-        super().__init__()
-        if config["hidden_dim"] is not None:
-            self.hidden = nn.Linear(config["input_dim"], config["hidden_dim"])  # input → hidden
-            self.relu = nn.ReLU()                            # non-linearity
-            self.dropout = nn.Dropout(config["dropout_rate"])
-            self.output = nn.Linear(config["hidden_dim"], 1)          # hidden → output
-        else:
-            self.output = nn.Linear(config["input_dim"], 1)          # input → output
-
-    def forward(self, x):
-        if config["hidden_dim"] is not None:
-            x = self.hidden(x)
-            x = self.relu(x)
-            x = self.dropout(x)
-        x = self.output(x)   # scalar score
-
-        return x
 
 
 def setup_logging():
@@ -81,7 +64,8 @@ title: The title of the plot.
 filename: The filename for saving the plot (without extension).
 other_data: Additional text data to display below the plot (e.g., hyperparameters or notes).
 """
-def visualization(model: LinearBinaryModel, lines : dict, title: str, filename: str, other_data: str) -> None:
+"""
+def visualization(model, lines : dict, title: str, filename: str, other_data: str) -> None:
     model_string = str(model)
 
     # Count lines to estimate height needed 
@@ -125,6 +109,7 @@ def visualization(model: LinearBinaryModel, lines : dict, title: str, filename: 
     )
 
     plt.savefig(f"data/visualizations/{filename}.png")  
+"""
 
 
 """
@@ -230,9 +215,10 @@ def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int =
     au_pairs = []
 
     # Aelfric–Aelfric pairs (1)
-    for emb_a in tqdm(a_sample, desc="Generating Aelfric-Aelfric pairs"):
-        for emb_b in a_sample:
-            aa_pairs.append(np.concatenate([emb_a, emb_b]))
+    for i, emb_a in tqdm(enumerate(a_sample), desc="Generating Aelfric-Aelfric pairs"):
+        for j, emb_b in enumerate(a_sample):
+            if i != j:  # Avoid pairing an embedding with itself
+                aa_pairs.append(np.concatenate([emb_a, emb_b]))
 
     # Aelfric–Unknown pairs (0)
     for emb_a in tqdm(a_sample, desc="Generating Aelfric-Unknown pairs"):
@@ -291,8 +277,8 @@ num_epochs: The number of epochs to train the model.
 batch_size: The batch size for training.
 Returns: The trained model along with dictionaries containing in-sample and out-of-sample accuracies for overall, Aelfric, and Unknown classes.
 """
-def train_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray, a_train_embeddings: np.ndarray) -> tuple[LinearBinaryModel, dict, dict]:
-    model = LinearSVC(C=0.1, random_state=config["random_seed"], dual="auto")  # Using SVM with linear kernel
+def train_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray, a_train_embeddings: np.ndarray):
+    model = make_pipeline(StandardScaler(), LinearSVC(C=config["C"], dual="auto", random_state=config["random_seed"], class_weight="balanced"))
     model.fit(x_train, y_train)
 
     return model
@@ -331,7 +317,7 @@ def predict_single_embedding(model, test_emb: np.ndarray, a_train_embeddings: li
 
     pairs = [np.concatenate([a, test_emb]) for a in aelfrics]  # shape (N_a, 2048)
 
-    probs = model.predict(pairs)
+    probs = model.decision_function(pairs)
 
     # Aggregate:
     avg_score = np.mean(probs)  # average probability across all pairs
@@ -339,6 +325,7 @@ def predict_single_embedding(model, test_emb: np.ndarray, a_train_embeddings: li
     return 1 if avg_score > config["aelfric_threshold"] else 0
 
 
+"""
 def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, random_seed=42):
     global accuracy_data
 
@@ -407,7 +394,7 @@ def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y
 
     logging.info("\n===== PREDICTIONS =====")
     
-    #"""
+    
     logging.debug("Individual scores:")
 
     logging.debug("\nAelfric:")
@@ -419,7 +406,7 @@ def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y
     for index, score in enumerate(unknown_scores):
         if index < 5:  # Print only the first few scores
             logging.debug(f"  {score:.4f}")
-    #"""
+    
 
     logging.info("\nPrediction vs Actual:")
 
@@ -444,6 +431,7 @@ def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y
     accuracy_data["false_unknown"] = np.sum((np.array(y_test) == 0) & (np.array(y_pred) == 1))
     logging.info(f"True Unknown: {accuracy_data['true_unknown']}")
     logging.info(f"False Unknown: {accuracy_data['false_unknown']}")
+"""
 
 
 """
@@ -500,6 +488,7 @@ def error(accs : dict) -> dict:
     return errors
 
 
+"""
 def save_to_spreadsheet():
     headers = [
         "date",
@@ -557,10 +546,12 @@ def save_to_spreadsheet():
     row_index = len(worksheet.get_all_values()) + 1
     #worksheet.update(f"A{row_index}", [row_data])
     worksheet.update(values=[row_data], range_name=f"A{row_index}")
+"""
 
 
 """
 Save the config and model to a file
+"""
 """
 def save_model(model, path):
     torch.save({
@@ -568,6 +559,7 @@ def save_model(model, path):
         "config": config
     }, path)
     logging.info(f"\nModel saved to {path}") 
+"""
 
 
 """
@@ -583,6 +575,7 @@ def load_model(path):
     return model
 
 
+"""
 def generate_heatmap(model):
     x_train, x_test, y_train, y_test, _, _, _ = load_data()
 
@@ -615,6 +608,7 @@ def generate_heatmap(model):
     plt.savefig("data/visualizations/heatmap.png", dpi=300, bbox_inches="tight")
     plt.show()
     logging.info("Heatmap saved.")
+"""
 
 
 def main():
@@ -630,12 +624,12 @@ def main():
         x_train, y_train, x_test, y_test, a_train_embeddings = prepare_data()   
 
         # Find and print accuracies
-        y_pred = predict_linear_model(model, x_test, a_train_embeddings, random_seed=config["random_seed"])
+        y_pred = predict_model(model, x_test, a_train_embeddings, random_seed=config["random_seed"])
 
         acc_overall = accuracy(y_test, y_pred)
         class_acc = class_accuracy(y_test, y_pred)
 
-        log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, acc_overall, class_acc,random_seed=config["random_seed"])
+        #log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, acc_overall, class_acc,random_seed=config["random_seed"])
 
         logging.info(f"Overall test accuracy: {acc_overall*100:.2f}%")
         logging.info(f"Aelfric accuracy: {class_acc['Aelfric']*100:.2f}%")
@@ -684,7 +678,4 @@ def main():
 
 
 if __name__ == '__main__':
-    for i in range(1):
-        main()
-        logging.info(f"Completed iteration {i+1}/6")
-        config["aelfric_threshold"] += 0.1  # Increment the threshold for the next iteration
+    main()

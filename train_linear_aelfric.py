@@ -26,14 +26,14 @@ model_loaded = False  # Set to True if you want to load a pre-trained model inst
 config: dict = {
     "author": "Mark",
     "input_dim": 2048,
-    "hidden_dim": [50, 25],
+    "hidden_dim": 256,
     "optimizer": "AdamW",
     "weight_decay": 0.35,
     "dropout_rate": 0.05,
     "num_epochs": 75,
     "batch_size": 32,
-    "test_split": 0.2,
-    "threshold": 0.2,
+    "test_split": 0.3,
+    "threshold": 0.3,
     "learning_rate": 5e-5,
     "random_seed": 11,
     "num_samples": int(1e4),
@@ -48,7 +48,7 @@ class LinearBinaryModel(nn.Module):
     def __init__(self):
         super().__init__()
         if config["hidden_dim"] is not None:
-            if config["hidden_dim"] is int: # If hidden_dim is a single integer, create one hidden layer
+            if isinstance(config["hidden_dim"], int): # If hidden_dim is a single integer, create one hidden layer
                 self.hidden = nn.Linear(config["input_dim"], config["hidden_dim"])  # input → hidden
                 self.relu = nn.ReLU()                            # non-linearity
                 self.dropout = nn.Dropout(config["dropout_rate"])
@@ -68,7 +68,7 @@ class LinearBinaryModel(nn.Module):
 
     def forward(self, x):
         if config["hidden_dim"] is not None:
-            if config["hidden_dim"] is int: # If hidden_dim is a single integer, create one hidden layer
+            if isinstance(config["hidden_dim"], int): # If hidden_dim is a single integer, create one hidden layer
                 x = self.hidden(x)
                 x = self.relu(x)
                 x = self.dropout(x)
@@ -795,7 +795,7 @@ def main():
         model_name = f"models/linear_model ({acc_str}) ({timestamp_str}).pth" 
 
         save_model(model, model_name)
-        save_to_spreadsheet()  # Save the model, config, and accuracy data to a spreadsheet
+        #save_to_spreadsheet()  # Save the model, config, and accuracy data to a spreadsheet
 
         model_loaded = True
 
@@ -811,7 +811,7 @@ def main():
 
 if __name__ == '__main__':
     for i in range(1):
-        for j in range(2):
+        for j in range(1):
             main()
             logging.info(f"Completed iteration {j+1}/2")
             config["threshold"] += 0.1  # Increment the threshold for the next iteration
