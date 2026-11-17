@@ -28,14 +28,14 @@ print("Using device:", device)
 config: dict = {
     "author": "Emma",
     "input_dim": 2048,
-    "hidden_dims": [10, 5],
+    "hidden_dims": [128, 64],
     "optimizer": "Adam",
     "weight_decay": None,
     "dropout_rates": [0.4],
     "num_epochs": 30,
     "batch_size": 32,
     "test_split": 0.5,
-    "aelfric_threshold": 0.2,
+    "aelfric_threshold": 0.4,
     "learning_rate": 5e-5,
     "random_seed": 11,
     "num_samples": int(1e4),
@@ -603,10 +603,10 @@ def main():
 
     logger = setup_logging()
 
-    model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
+    model_loaded = False # Set to True if you want to load a pre-trained model instead of training a new one
 
     if model_loaded:
-        model_path = "models/linear_model (94_76_99) (10_18_2026 22-32).pth"  # Update with your model path
+        model_path = "models/linear_model (92_80_96) (10_19_2026 18-30).pth"  # Update with your model path
         #model_path = "models/linear_model E(95_81_99) (10_12_2026 16-52).pth"
         model = load_model(model_path)
 
