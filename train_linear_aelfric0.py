@@ -39,8 +39,8 @@ config: dict = {
     "learning_rate": 5e-5,
     "random_seed": 11,
     "num_samples": int(1e4),
-    "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
-    "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
+    "aelfric_path": "data/sorted_embeddings/Train/Large Chunk Headerless/Aelfric",
+    "unknown_path": "data/sorted_embeddings/Train/Large Chunk Headerless/Unknown"
 }
 
 class LinearBinaryModel(nn.Sequential):
@@ -214,7 +214,7 @@ def load_data(config: dict) -> tuple[np.ndarray, np.ndarray, list[int], list[int
     ids = a_ids + u_ids
 
     # Randomly split the full works while keeping embeddings, IDs, and labels aligned
-    x_train, x_test, y_train, y_test, id_train, id_test = train_test_split(embeddings, y, ids, test_size=config["test_split"], stratify=y)
+    x_train, x_test, y_train, y_test, id_train, id_test = train_test_split(embeddings, y, ids, test_size=config["test_split"], random_state = config["random_seed"], stratify=y)
 
     # Save the Aelfric training embeddings for later use in predictions
     a_train_embeddings = x_train[np.array(y_train) == 1]  # Select embeddings where label is 1 (Aelfric)
@@ -592,6 +592,11 @@ def load_model(path):
     global config
     checkpoint = torch.load(path, map_location=device)
     config = checkpoint["config"]
+    fileOverwrite = False #change this variable to switch between the headerless file and the original one
+    if(fileOverwrite):
+        config["aelfric_path"] = "data/sorted_embeddings/Train/Large Chunk Headerless/Aelfric"
+        config["unknown_path"] = "data/sorted_embeddings/Train/Large Chunk Headerless/Aelfric"
+    
     model = LinearBinaryModel().to(device)
     model.load_state_dict(checkpoint["model_state_dict"])
     logging.info(f"Loaded model from {path}")
@@ -603,10 +608,10 @@ def main():
 
     logger = setup_logging()
 
-    model_loaded = False # Set to True if you want to load a pre-trained model instead of training a new one
+    model_loaded = True # Set to True if you want to load a pre-trained model instead of training a new one
 
     if model_loaded:
-        model_path = "models/linear_model (92_80_96) (10_19_2026 18-30).pth"  # Update with your model path
+        model_path = "models/linear_model (94_75_99) (11_16_2026 18-58).pth"  # Update with your model path
         #model_path = "models/linear_model E(95_81_99) (10_12_2026 16-52).pth"
         model = load_model(model_path)
 
