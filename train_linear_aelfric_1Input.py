@@ -605,10 +605,10 @@ def main():
 
     logger = setup_logging()
 
-    model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
+    model_loaded = True  # Set to True if you want to load a pre-trained model instead of training a new one
 
     if model_loaded:
-        model_path = "models/linear_model (92_67_100) (10_28_2026 18-57).pth"  # Update with your model path
+        model_path = "models/linear_model (92_80_96) (11_04_2026 18-24).pth"  # Update with your model path
         #model_path = "models/linear_model E(95_81_99) (10_12_2026 16-52).pth"
         model = load_model(model_path)
 

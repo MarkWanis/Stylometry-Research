@@ -592,10 +592,10 @@ def load_model(path):
     global config
     checkpoint = torch.load(path, map_location=device)
     config = checkpoint["config"]
-    fileOverwrite = False #change this variable to switch between the headerless file and the original one
+    fileOverwrite = True #change this variable to switch between the headerless file and the original one
     if(fileOverwrite):
         config["aelfric_path"] = "data/sorted_embeddings/Train/Large Chunk Headerless/Aelfric"
-        config["unknown_path"] = "data/sorted_embeddings/Train/Large Chunk Headerless/Aelfric"
+        config["unknown_path"] = "data/sorted_embeddings/Train/Large Chunk Headerless/Unknown"
     
     model = LinearBinaryModel().to(device)
     model.load_state_dict(checkpoint["model_state_dict"])
@@ -608,7 +608,7 @@ def main():
 
     logger = setup_logging()
 
-    model_loaded = True # Set to True if you want to load a pre-trained model instead of training a new one
+    model_loaded = False # Set to True if you want to load a pre-trained model instead of training a new one
 
     if model_loaded:
         model_path = "models/linear_model (94_75_99) (11_16_2026 18-58).pth"  # Update with your model path
