@@ -7,7 +7,7 @@ import torch.nn as nn
 import random
 
 from sklearn.model_selection import train_test_split
-from sklearn.svm import SVC, LinearSVC
+from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
