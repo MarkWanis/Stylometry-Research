@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logging.info(f"Using device: {device}")
 
-model_name : str = "models/linear_model (94._91._94.) (10_21_2026 22-26).pth"
+model_name : str = "models/linear_model (95._93._96.) (10_31_2026 00-10).pth"
 model_loaded = False  # Set to True if you want to load a pre-trained model instead of training a new one
 
 # Defines the configuration for the model and training parameters
@@ -30,15 +30,15 @@ config: dict = {
     "optimizer": "AdamW",
     "weight_decay": 0.35,
     "dropout_rate": 0.05,
-    "num_epochs": 75,
+    "num_epochs": 20,
     "batch_size": 32,
     "test_split": 0.3,
     "threshold": 0.3,
     "learning_rate": 5e-5,
     "random_seed": 11,
     "num_samples": int(1e4),
-    "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
-    "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
+    "aelfric_path": "data/sorted_embeddings/Train/Large Chunk Headerless/Aelfric",
+    "unknown_path": "data/sorted_embeddings/Train/Large Chunk Headerless/Unknown"
 }
 
 accuracy_data: dict = {}
@@ -534,17 +534,17 @@ def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y
             logging.debug(f"  {score:.4f}")
     #"""
 
-    logging.info("\nPrediction vs Actual:")
+    logging.debug("\nPrediction vs Actual:")
 
     accuracy_data["predicted_aelfric"] = np.sum(np.array(y_pred) == 1)
     accuracy_data["predicted_unknown"] = np.sum(np.array(y_pred) == 0)
-    logging.info(f"Predicted Aelfric: {accuracy_data['predicted_aelfric']}")
-    logging.info(f"Predicted Unknown: {accuracy_data['predicted_unknown']}")
+    logging.debug(f"Predicted Aelfric: {accuracy_data['predicted_aelfric']}")
+    logging.debug(f"Predicted Unknown: {accuracy_data['predicted_unknown']}")
 
     accuracy_data["actual_aelfric"] = np.sum(np.array(y_test) == 1)
     accuracy_data["actual_unknown"] = np.sum(np.array(y_test) == 0)
-    logging.info(f"Actual Aelfric: {accuracy_data['actual_aelfric']}")
-    logging.info(f"Actual Unknown: {accuracy_data['actual_unknown']}")
+    logging.debug(f"Actual Aelfric: {accuracy_data['actual_aelfric']}")
+    logging.debug(f"Actual Unknown: {accuracy_data['actual_unknown']}")
 
     logging.info("\nConfusion Matrix:") 
 
@@ -751,7 +751,7 @@ def main():
         acc_overall = accuracy(y_test, y_pred)
         class_acc = class_accuracy(y_test, y_pred)
 
-        log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred)
+        #log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred)
 
         logging.info("\n===== Test Accuracies =====\n")
         logging.info(f"Overall test accuracy: {acc_overall*100:.2f}%")
@@ -763,7 +763,7 @@ def main():
         accuracy_data["aelfric_accuracy"] = f"{round(class_acc['Aelfric']*100, 2)}%"
         accuracy_data["unknown_accuracy"] = f"{round(class_acc['Unknown']*100, 2)}%"
 
-        save_to_spreadsheet()
+        #save_to_spreadsheet()
 
     else:
         # Train the model
@@ -778,7 +778,7 @@ def main():
         acc_overall = accuracy(y_test, y_pred)
         class_acc = class_accuracy(y_test, y_pred)
 
-        log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred)
+        #log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred)
 
         logging.info("\n===== Test Accuracies =====\n")
         logging.info(f"Overall test accuracy: {acc_overall*100:.2f}%")

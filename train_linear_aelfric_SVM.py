@@ -34,8 +34,8 @@ config: dict = {
     "random_seed": 11,
     "num_samples": int(1e4),
     "C": 0.1,
-    "aelfric_path": "data/sorted_embeddings/Train/Large Chunk Headerless/Aelfric",
-    "unknown_path": "data/sorted_embeddings/Train/Large Chunk Headerless/Unknown"
+    "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
+    "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
 }
 
 accuracy_data: dict = {}
@@ -212,10 +212,8 @@ batch_size: The batch size for training.
 Returns: The trained model along with dictionaries containing in-sample and out-of-sample accuracies for overall, Aelfric, and Unknown classes.
 """
 def train_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray, a_train_embeddings: np.ndarray):
-    with tqdm(total=1, desc="Fitting LinearSVC", bar_format="{desc}: {elapsed}") as pbar:
-        model = make_pipeline(StandardScaler(), LinearSVC(C=config["C"], dual="auto", random_state=config["random_seed"], class_weight="balanced", verbose=0))
-        model.fit(x_train, y_train)
-        pbar.update(1)
+    model = make_pipeline(StandardScaler(), LinearSVC(C=config["C"], dual="auto", random_state=config["random_seed"], class_weight="balanced", verbose=0))
+    model.fit(x_train, y_train)
 
     return model
 
