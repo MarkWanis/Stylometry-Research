@@ -29,20 +29,13 @@ logging.info(f"Using device: {device}")
 config: dict = {
     "author": "MW",
     "input_dim": 2048,
-    "hidden_dim": None,
-    "optimizer": "Adam",
-    "weight_decay": None,
-    "dropout_rate": 0.5,
-    "num_epochs": 1,
-    "batch_size": 32,
-    "test_split": 0.5,
-    "aelfric_threshold": 0.5,
-    "learning_rate": 5e-5,
+    "test_split": 0.2,
+    "aelfric_threshold": 0.1,
     "random_seed": 11,
     "num_samples": int(1e4),
     "C": 0.1,
-    "aelfric_path": "data/sorted_embeddings/Train/Large Chunk/Aelfric",
-    "unknown_path": "data/sorted_embeddings/Train/Large Chunk/Unknown"
+    "aelfric_path": "data/sorted_embeddings/Train/Large Chunk Headerless/Aelfric",
+    "unknown_path": "data/sorted_embeddings/Train/Large Chunk Headerless/Unknown"
 }
 
 accuracy_data: dict = {}
@@ -51,65 +44,6 @@ accuracy_data: dict = {}
 def setup_logging():
     logging.basicConfig(level=logging.DEBUG)
     return logging.getLogger(__name__)
-    
-
-"""
-Creates a visualization of the training and testing errors over epochs. 
-The function dynamically adjusts the figure size based on the number of lines in the model description to ensure that all text is visible. 
-It plots the error lines for different classes and saves the resulting figure as a PNG file.
-
-model: The trained model whose description will be displayed below the plot.
-lines: A dictionary where keys are labels (e.g., "In Sample Error") and values are lists of error values over epochs.
-title: The title of the plot.
-filename: The filename for saving the plot (without extension).
-other_data: Additional text data to display below the plot (e.g., hyperparameters or notes).
-"""
-"""
-def visualization(model, lines : dict, title: str, filename: str, other_data: str) -> None:
-    model_string = str(model)
-
-    # Count lines to estimate height needed 
-    model_lines = len(model_string.splitlines())
-    extra_height = 0.1 + model_lines * 0.015  # adjust for text length
-    
-    # Create figure with dynamic bottom margin
-    fig, ax = plt.subplots(figsize=(15, 5 + extra_height * 10))
-    fig.subplots_adjust(bottom=(extra_height * 10) / ((extra_height * 10) + 5))
-
-    colors = ["#e41a1c", "#377eb8", "#4daf4a"]
-
-    for i, (label, line) in enumerate(lines.items()):
-        ax.plot(line, color=colors[i], label=label, alpha=0.7)
-    
-    ax.set_ylim(-1, 31)
-    ax.set_yticks(range(0, 35, 10))
-    ax.grid(True, which='both', linestyle='--', alpha=0.5)
-    ax.legend()
-    ax.set_title(title)
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Error")
-
-    # Add model description below the plot
-    fig.text(
-        0.1, 0.02, model_string,
-        fontsize=10,
-        va='bottom',
-        ha='left',
-        family='monospace',
-        bbox=dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.8)
-    )
-    # Add model description below the plot
-    fig.text(
-        0.5, 0.02, other_data,
-        fontsize=10,
-        va='bottom',
-        ha='left',
-        family='monospace',
-        bbox=dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.8)
-    )
-
-    plt.savefig(f"data/visualizations/{filename}.png")  
-"""
 
 
 """
@@ -242,7 +176,7 @@ Loads the data and prepares training pairs
 Returns: Training and testing sets along with Aelfric embeddings for later use in predictions.
 """
 def prepare_data() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    x_train_old, x_test, y_train_old, y_test, _, _, a_train_embeddings = load_data() #"data/sorted_embeddings/Aelfric", "data/sorted_embeddings/Unknown", 0.5, 13)
+    x_train_old, x_test, y_train_old, y_test, _, _, a_train_embeddings = load_data() 
     
     logging.info("Loaded embeddings...")
     logging.debug(f"Train Embeddings: {x_train_old[:5]} ({len(x_train_old)})")
@@ -278,8 +212,10 @@ batch_size: The batch size for training.
 Returns: The trained model along with dictionaries containing in-sample and out-of-sample accuracies for overall, Aelfric, and Unknown classes.
 """
 def train_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray, a_train_embeddings: np.ndarray):
-    model = make_pipeline(StandardScaler(), LinearSVC(C=config["C"], dual="auto", random_state=config["random_seed"], class_weight="balanced"))
-    model.fit(x_train, y_train)
+    with tqdm(total=1, desc="Fitting LinearSVC", bar_format="{desc}: {elapsed}") as pbar:
+        model = make_pipeline(StandardScaler(), LinearSVC(C=config["C"], dual="auto", random_state=config["random_seed"], class_weight="balanced", verbose=0))
+        model.fit(x_train, y_train)
+        pbar.update(1)
 
     return model
 
@@ -321,117 +257,9 @@ def predict_single_embedding(model, test_emb: np.ndarray, a_train_embeddings: li
 
     # Aggregate:
     avg_score = np.mean(probs)  # average probability across all pairs
-    print(f"Avg score for test embedding: {avg_score:.4f}, threshold: {config['aelfric_threshold']:.4f}")
+    #print(f"Avg score for test embedding: {avg_score:.4f}, threshold: {config['aelfric_threshold']:.4f}")
     return 1 if avg_score > config["aelfric_threshold"] else 0
 
-
-"""
-def log_test_data(model, x_train, y_train, x_test, y_test, a_train_embeddings, y_pred, random_seed=42):
-    global accuracy_data
-
-    model.eval()
-
-    aelfric_scores = []
-    unknown_scores = []
-
-    for test_emb, true_label in zip(x_test, y_test):
-        # Pair this test embedding with Aelfric reference embeddings
-        random.seed(random_seed)  # Ensure reproducibility for sampling
-        aelfrics = random.sample(
-            a_train_embeddings.tolist(),
-            k=min(len(a_train_embeddings), 100)
-        )
-
-        pairs = [np.concatenate([a, test_emb]) for a in aelfrics]
-        x_tensor = torch.tensor(
-            np.stack(pairs),
-            dtype=torch.float32
-        ).to(device)
-
-        with torch.no_grad():
-            logits = model(x_tensor).squeeze()
-            probs = torch.sigmoid(logits).cpu().numpy()
-
-        avg_score = np.mean(probs)
-
-        if true_label == 1:
-            aelfric_scores.append(avg_score)
-        else:
-            unknown_scores.append(avg_score)
-
-    logging.debug("\n===== DATA DISTRIBUTION =====")
-
-    logging.debug("Train:")
-    logging.debug(f"\tAelfric: {np.sum(y_train == 1)}")
-    logging.debug(f"\tUnknown: {np.sum(y_train == 0)}")
-    logging.debug(f"\tTrain embeddings shape: {x_train.shape}")
-    logging.debug(f"\tTrain embeddings:\n{x_train[:5][:5]}")
-    logging.debug(f"\tTrain labels:\n{y_train[:5]}")
-
-    logging.debug("Test:")
-    logging.debug(f"\tAelfric: {np.sum(y_test == 1)}")
-    logging.debug(f"\tUnknown: {np.sum(y_test == 0)}")
-
-    logging.debug(f"\tAelfric training embeddings: {len(a_train_embeddings)}")
-    logging.debug(f"\tAelfric test embeddings: {np.sum(y_test == 1)}")
-    logging.debug(f"\tUnknown test embeddings: {np.sum(y_test == 0)}")
-    logging.debug(f"\tAelfric training embeddings shape: {a_train_embeddings.shape}")
-    #logging.debug(f"\tAelfric training embeddings:\n{a_train_embeddings[:5]}")
-
-    logging.info("\n===== RAW SCORE DISTRIBUTION =====")
-    
-    logging.info("\nAelfric:")
-    logging.info(f"\tMean: {np.mean(aelfric_scores):.4f}")
-    logging.info(f"\tMin:  {np.min(aelfric_scores):.4f}")
-    logging.info(f"\tMax:  {np.max(aelfric_scores):.4f}")
-    logging.info(f"\tStd:  {np.std(aelfric_scores):.4f}")
-
-    logging.info("\nUnknown:")
-    logging.info(f"\tMean: {np.mean(unknown_scores):.4f}")
-    logging.info(f"\tMin:  {np.min(unknown_scores):.4f}")
-    logging.info(f"\tMax:  {np.max(unknown_scores):.4f}")
-    logging.info(f"\tStd:  {np.std(unknown_scores):.4f}")
-
-    logging.info("\n===== PREDICTIONS =====")
-    
-    
-    logging.debug("Individual scores:")
-
-    logging.debug("\nAelfric:")
-    for index, score in enumerate(aelfric_scores):
-        if index < 5:  # Print only the first few scores
-            logging.debug(f"  {score:.4f}")
-
-    logging.debug("\nUnknown:")
-    for index, score in enumerate(unknown_scores):
-        if index < 5:  # Print only the first few scores
-            logging.debug(f"  {score:.4f}")
-    
-
-    logging.info("\nPrediction vs Actual:")
-
-    accuracy_data["predicted_aelfric"] = np.sum(np.array(y_pred) == 1)
-    accuracy_data["predicted_unknown"] = np.sum(np.array(y_pred) == 0)
-    logging.info(f"Predicted Aelfric: {accuracy_data['predicted_aelfric']}")
-    logging.info(f"Predicted Unknown: {accuracy_data['predicted_unknown']}")
-
-    accuracy_data["actual_aelfric"] = np.sum(np.array(y_test) == 1)
-    accuracy_data["actual_unknown"] = np.sum(np.array(y_test) == 0)
-    logging.info(f"Actual Aelfric: {accuracy_data['actual_aelfric']}")
-    logging.info(f"Actual Unknown: {accuracy_data['actual_unknown']}")
-
-    logging.info("\nConfusion Matrix:")
-
-    accuracy_data["true_aelfric"] = np.sum((np.array(y_test) == 1) & (np.array(y_pred) == 1))
-    accuracy_data["false_aelfric"] = np.sum((np.array(y_test) == 1) & (np.array(y_pred) == 0))
-    logging.info(f"True Aelfric: {accuracy_data['true_aelfric']}")
-    logging.info(f"False Aelfric: {accuracy_data['false_aelfric']}")
-
-    accuracy_data["true_unknown"] = np.sum((np.array(y_test) == 0) & (np.array(y_pred) == 0))
-    accuracy_data["false_unknown"] = np.sum((np.array(y_test) == 0) & (np.array(y_pred) == 1))
-    logging.info(f"True Unknown: {accuracy_data['true_unknown']}")
-    logging.info(f"False Unknown: {accuracy_data['false_unknown']}")
-"""
 
 
 """
@@ -641,6 +469,11 @@ def main():
 
         model = train_model(x_train, y_train, x_test, y_test, a_train_embeddings)
         logging.info("Training complete.")
+
+        scores = model.decision_function(x_train)
+        y_signed = np.where(y_train == 1, 1, -1)
+        n_sv = int(np.sum(y_signed * scores <= 1 + 1e-6))
+        print(f"Support vectors: {n_sv} / {len(x_train)}")
 
         # Find and print accuracies
         y_pred = np.array(predict_model(model, x_test, a_train_embeddings, random_seed=config["random_seed"]))
