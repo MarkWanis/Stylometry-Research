@@ -255,7 +255,7 @@ def load_data(config: dict) -> tuple[np.ndarray, np.ndarray, list[int], list[int
 
 
 """
-Create Aelfric-Aelfric (positive) and Aelfric-Unknown (zero) pairs.
+Create Aelfric-Aelfric and Aelfric-Unknown pairs for regular embedding training not chunk training. 
 
 embs: List of embeddings (np.ndarray).
 labels: List of corresponding labels (1 for Aelfric, 0 for Unknown).
@@ -302,15 +302,18 @@ def pair_embeddings(embs: list[np.ndarray], labels: list[int], num_samples:int =
 
 
 """
-Loads the chunk embeddings of the TRAINING texts only (parents in id_train), in a fixed order:
-the order of id_train, then chunk index. Chunks take their parent text's label.
-Returns: chunk embeddings, chunk labels, and each chunk's parent text ID.
+Loads the chunk embeddings from the training texts only (parents in id_train).
+Chunks here are assigned their parents text label so that they can be identified as belonging to the same parent. 
+So like a text would be like B1.1.4 and then if theres two chunks that are made from it, they would be emb_B4_0 and emb_B4_1
+Then returns chunk embeddings, chunk labels, and each chunk's parent text ID for only training texts.
 """
 def load_training_chunks(config: dict, id_train: list, y_train: list) -> tuple[np.ndarray, list, list]:
+    #finding the label of the parent
     label_by_id = dict(zip(id_train, y_train))
     by_parent: dict = {}
     for folder in (config["aelfric_path"], config["unknown_path"]):
         embs, parents, indexes = load_chunk_embeddings(str(Path(folder) / "chunks"))
+        #pairing the ID with the labels 
         for emb, parent, idx in zip(embs, parents, indexes):
             if parent in label_by_id:   # chunks of test texts are never loaded for training
                 by_parent.setdefault(parent, []).append((idx if idx is not None else 0, emb))
@@ -329,12 +332,13 @@ def load_training_chunks(config: dict, id_train: list, y_train: list) -> tuple[n
 
 
 """
-Builds training pairs from chunks by sampling index pairs, so the full set of possible pairs is never held in memory.
+Builds training pairs from chunks so it should make around 12,000 A-A pairs (label 1) 
+and 12,000 A-U pairs (label 0).
 
-Aelfric-Aelfric pairs (1) always come from two DIFFERENT texts: chunks of one text are near copies of each other,
-and pairing them would teach the model "same text" instead of "same author".
-Aelfric-Unknown pairs (0) pair an Aelfric chunk with an Unknown chunk (np.multiply is symmetric, so order does not matter).
-Returns: the two lists of pair vectors.
+Aelfric-Aelfric pairs always come from two different texts.
+
+The two embedding vectors are then multiplied into one vector with np.multiply due to this model's method being 
+vector products.
 """
 def pair_chunk_embeddings(embs: np.ndarray, labels: list, parents: list, n_aa: int, n_au: int, random_seed: int = 42) -> tuple[list, list]:
     a_idx = [i for i, l in enumerate(labels) if l == 1]
@@ -366,7 +370,9 @@ def pair_chunk_embeddings(embs: np.ndarray, labels: list, parents: list, n_aa: i
 """
 Loads the data and prepares training pairs
 
-Returns: Training and testing sets along with Aelfric embeddings for later use in predictions.
+After calling pair_chunk_embeddings it gives the Aelfric-Aelfric and the Aelfric-Unknown pairs.
+Those then become the pairs that are put into x_train and y_train
+
 """
 def prepare_data(config: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     x_train_old, x_test, y_train_old, y_test, id_train, id_test, a_train_embeddings = load_data(config) #"data/sorted_embeddings/Aelfric", "data/sorted_embeddings/Unknown", 0.5, 13)
@@ -406,14 +412,15 @@ def prepare_data(config: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.n
 
 """
 Creates the model, trains it on the training data, and evaluates it on both training and testing data.
+The chunk pairs of A-A and A-U are used to train weights but aren't used for the actual testing.
 
-x_train: Training embeddings (np.ndarray).
-y_train: Training labels (np.ndarray).
-x_test: Testing embeddings (np.ndarray).
-y_test: Testing labels (np.ndarray).
-a_train_embeddings: Aelfric training embeddings (np.ndarray).
-num_epochs: The number of epochs to train the model.
-batch_size: The batch size for training.
+x_train: The chunk pair vectors so A-A and A-U combined into one
+y_train: Training labels of the paired vectors
+x_test: Whole text embeddings 
+y_test: Whole text testing labels
+a_train_embeddings: using the Aelfric training chunks to score test items
+
+
 Returns: The trained model along with dictionaries containing in-sample and out-of-sample accuracies for overall, Aelfric, and Unknown classes.
 """
 def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray, a_train_embeddings: np.ndarray, config: dict) -> tuple[LinearBinaryModel, dict, dict]:
@@ -422,16 +429,14 @@ def train_linear_model(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
     x_tensor = torch.tensor(x_train, dtype=torch.float32).to(device)
     y_tensor = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1).to(device)  # shape (N_total, 1)
 
-    # Create per-sample weights: slightly downweight Unknown (-1)
-    #weights = np.ones(len(y_train), dtype=np.float32)
-    #weights[y_train == -1] = 0.9
-    #weights_tensor = torch.tensor(weights, dtype=torch.float32).unsqueeze(1).to(device)
-
+    #creating the model 
     model = LinearBinaryModel(input_dim=config["input_dim"], hidden_dim=config["hidden_dim"], dropout_rate=config["dropout_rate"]).to(device)
 
     #This is added to penalize mistakes on Aelfric labels by weighing them heavier
     pos_weight = torch.tensor([np.sum(y_train == 0) / np.sum(y_train == 1)], dtype=torch.float32).to(device)  # Unknown/Aelfric ratio
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+
+    # AdamW optimizer with weight decay and learning
     optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"])
 
     # Dataset with weights
@@ -486,7 +491,7 @@ Predicts the class (+1 for Aelfric, 0 for Unknown) for new embeddings using the 
 If Aelfric embeddings are provided, it pairs each new embedding with all Aelfric embeddings to make predictions based on the average score.
 
 model: The trained LinearBinaryModel.
-x_new: New embeddings to classify (np.ndarray of shape (N, 1024) or (1024,)).
+x_new: New embeddings to classify 
 a_train_embeddings: Optional Aelfric embeddings to pair with new embeddings for prediction.
 Returns: A list of predicted classes (+1 for Aelfric, 0 for Unknown) for each new embedding.
 """
@@ -509,34 +514,44 @@ def predict_linear_model(model: LinearBinaryModel, x_new: np.ndarray, a_train_em
     else:
         preds = []
         for test_emb in x_new:
-            pred = predict_single_embedding(model, test_emb, a_train_embeddings, random_seed=config["random_seed"],threshold = config["threshold"])
+            pred = predict_single_chunk(model, test_emb, a_train_embeddings, random_seed=config["random_seed"],threshold = config["threshold"])
             preds.append(pred)
         return preds
-"""
-Predicts the class (+1 for Aelfric, 0 for Unknown) for a single embedding by pairing it with a sample of Aelfric embeddings and averaging the model's scores.
-(MIGHT CHANGE HOW WE AVERAGE SCORES INSTEAD OF JUST TAKING THE MEAN, MAYBE WEIGHT BY CONFIDENCE OR SOMETHING)
 
-model: The trained LinearBinaryModel.
-test_emb: A single embedding to classify (np.ndarray of shape (1024,)).
-a_train_embeddings: A list of Aelfric training embeddings to pair with the test embedding for prediction.
-Returns: A single predicted class (+1 for Aelfric, 0 for Unknown) for the test embedding based on the average score from the model.
+
 """
-def predict_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_train_embeddings: list[np.ndarray], random_seed: int = 42, threshold =0.5) -> int:
+Predicts the class for a single chunk by pairing it with a sample of Aelfric chunks and averaging the model's scores.
+
+test_emb: The chunk that is being tested that is a vector of 1024 for embedding, this is not using A-A or A-U chunk pairs
+a_train_embeddings: A list of Aelfric training embeddings or chunks to pair with for prediction scoring. 
+Returns: A single predicted class (+1 for Aelfric, 0 for Unknown) for the test embedding based on the average. 
+
+In pairs 100 known aelfric chunks are multiplied with a chunk pair embedding that is passed to it outputing 100 vectors of 1024.
+All the pairs are then combined through a 100 x 1024 vector then are sent to tensor 
+They are then all run through the network, converted into an array, then finally the avg creates the result 
+
+"""
+def predict_single_chunk(model: LinearBinaryModel, test_emb: np.ndarray, a_train_embeddings: list[np.ndarray], random_seed: int = 42, threshold = 0.5) -> int:
+    
     # Sample fewer Aelfric embeddings for speed
     random.seed(random_seed)  # Ensure reproducibility for sampling
     aelfrics = random.sample(a_train_embeddings.tolist(), k=min(len(a_train_embeddings), 100))
 
+    # Making 100 pair vectors which is the chunk pair being tested and the refrence embedding for the sample of 100 Aelfrics 
     pairs = [np.multiply(a, test_emb) for a in aelfrics]
+
+    #stacks the 100 vectors into a 100 x 1024 array
     x_tensor = torch.tensor(np.stack(pairs), dtype=torch.float32).to(device)
 
-    # Switches to eval
+    # Switches to evaluation mode
     model.eval()
 
+    #this then scores all 100 pairs at once 
     with torch.no_grad():
         logits = model(x_tensor).squeeze()  # one score per pair
         probs = torch.sigmoid(logits).cpu().numpy()  # convert to probabilities
 
-    # Aggregate:
+    # Then takes the average, sees if its above the threshold then decides 
     avg_score = np.mean(probs)  # average probability across all pairs
     return 1 if avg_score > threshold else 0
 
@@ -547,6 +562,9 @@ Loads chunk-level embeddings from the "chunks" subfolder of a text-embedding fol
 
 Each chunk file holds the same job key as its parent text's embedding file, so the parent text ID is taken
 the same way as in load_embeddings (job_id.split('_')[1]). That keeps chunk IDs identical to the text IDs in split_ids.json.
+
+This uses split_ids.json is made the first run, don't try to change test_split or random seed or it will break.
+
 Returns: chunk embeddings (np.ndarray), the parent text ID of each chunk, and each chunk's index within its text.
 """
 def load_chunk_embeddings(chunks_dir: str) -> tuple[np.ndarray, list, list]:
@@ -565,10 +583,11 @@ def load_chunk_embeddings(chunks_dir: str) -> tuple[np.ndarray, list, list]:
 
 
 """
-Average model score (probability of Aelfric) for one embedding, using the same Aelfric reference sample
-as predict_single_embedding. Returns the score itself so chunk scores can be averaged per text.
+Only used in evaluate_chunks. 
+Avg probability of aelfric score for one embedding, using the same Aelfric reference sample
+as predict_single_chunk. Returns the score itself so chunk scores can be averaged per text.
 """
-def score_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_train_embeddings: np.ndarray, random_seed: int = 42) -> float:
+def score_single_chunk(model: LinearBinaryModel, test_emb: np.ndarray, a_train_embeddings: np.ndarray, random_seed: int = 42) -> float:
     random.seed(random_seed)
     aelfrics = random.sample(a_train_embeddings.tolist(), k=min(len(a_train_embeddings), 100))
 
@@ -583,19 +602,24 @@ def score_single_embedding(model: LinearBinaryModel, test_emb: np.ndarray, a_tra
 
 
 """
-Scores the chunks of the TEST texts only. Chunks inherit their parent text's label and their parent's side of the split,
-so no chunk of a training text is ever scored. Reports chunk-level accuracy and text-level accuracy (mean chunk score per text).
+Scores the chunks of the test texts only. 
+Reports chunk-level accuracy and text-level accuracy (mean chunk score per text).
 """
 def evaluate_chunks(model, config: dict, id_test: list, y_test: list, a_train_embeddings: np.ndarray, logger) -> dict:
+    #This is to get all of the test texts and their coresponding chunks 
     label_by_id = dict(zip(id_test, y_test))
     threshold = config["threshold"]
 
+
+
+    #This is a continuation from predict_single_chunk in which we are now taking the test chunks and 
+    #using score_single_chunk which returns the avg score of a chunk which is the avg probability of a chunk being Aelfric
     chunk_scores, chunk_labels, chunk_parents = [], [], []
     for folder in (config["aelfric_path"], config["unknown_path"]):
         embs, parents, _ = load_chunk_embeddings(str(Path(folder) / "chunks"))
         for emb, parent in zip(embs, parents):
             if parent in label_by_id:   # keep only chunks whose parent text is in the test set
-                chunk_scores.append(score_single_embedding(model, emb, a_train_embeddings, config["random_seed"]))
+                chunk_scores.append(score_single_chunk(model, emb, a_train_embeddings, config["random_seed"]))
                 chunk_labels.append(label_by_id[parent])
                 chunk_parents.append(parent)
 
@@ -604,12 +628,19 @@ def evaluate_chunks(model, config: dict, id_test: list, y_test: list, a_train_em
     if missing:
         logger.warning(f"{len(missing)} test texts have no chunk files, e.g. {missing[:5]}")
 
-    # Chunk level: every chunk is its own test item
+
+
+    # Now each chunk is being measured by the config Aelfric Threshold value 
     chunk_scores = np.array(chunk_scores)
     chunk_pred = [1 if s > threshold else 0 for s in chunk_scores]
+    # Then the accuracy of the chunks is then being evaluated 
     c_acc, c_cls = accuracy(chunk_labels, chunk_pred), class_accuracy(chunk_labels, chunk_pred)
 
-    # Text level: average the chunk scores of each text
+
+
+    # Now the texts are being evaluated 
+    # this is through the chunks of the texts having their scores averaged and then compared
+    # to the Aelfric Threshold value again 
     by_text: dict = {}
     for s, parent in zip(chunk_scores, chunk_parents):
         by_text.setdefault(parent, []).append(s)
@@ -758,7 +789,7 @@ def sweep_thresholds(model, x_test, y_test, a_train_embeddings, random_seed, thr
     from sklearn.metrics import roc_auc_score
     thresholds = thresholds if thresholds is not None else np.arange(0.2, 0.81, 0.05)
 
-    random.seed(random_seed)  # same 100 references as predict_single_embedding
+    random.seed(random_seed)  # same 100 references as predict_single_chunk
     refs = np.array(random.sample(a_train_embeddings.tolist(), k=min(len(a_train_embeddings), 100)))
 
     model.eval()
@@ -829,7 +860,7 @@ def main():
 
     if model_loaded:
         # Must be a checkpoint trained with this file's np.multiply pairs (input_dim 1024).
-        # The old concatenation checkpoints (input_dim 2048) will not work with this code.
+        # The old concatenation checkpoints (input_dim 2048) won't work with this model
         model_path = "models/<your product checkpoint>.pth"
         config, model = load_model(model_path)
         config.setdefault("threshold", 0.5)    # older checkpoints have no threshold; use the one from your sheet
@@ -882,15 +913,10 @@ def main():
            "chunk_au_pairs": 12000,   # Aelfric-Unknown chunk pairs
        }
 
-
-
-
-
-
-
         # Train the model
         x_train, y_train, x_test, y_test, a_train_embeddings, id_test = prepare_data(config)
 
+        # Now that we have the A-A and A-U chunk embedings we put them into the linear model
         model, in_accs, out_accs = train_linear_model(x_train, y_train, x_test, y_test, a_train_embeddings, config)
         logger.info("Training complete.")
 
